@@ -171,9 +171,10 @@ def run_llm_review(filepath: str, api_key: str) -> dict | None:
 
     user_message = f"## Up() method\n```csharp\n{up_body}\n```\n\n## Down() method\n```csharp\n{down_body}\n```"
 
-    client = anthropic.Anthropic(api_key=api_key)
+    base_url = os.environ.get("ANTHROPIC_BASE_URL", "https://api.anthropic.com")
+    client = anthropic.Anthropic(api_key=api_key, base_url=base_url)
     response = client.messages.create(
-        model="claude-sonnet-4-20250514",
+        model=os.environ.get("ANTHROPIC_MODEL", "eu.anthropic.claude-sonnet-4-6"),
         max_tokens=2048,
         system=SYSTEM_PROMPT,
         messages=[{"role": "user", "content": user_message}],
