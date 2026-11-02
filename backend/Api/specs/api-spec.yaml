@@ -171,15 +171,16 @@ components:
       x-enum-varnames: [Retail, Wholesale, Partner]
       description: "0=Retail, 1=Wholesale, 2=Partner"
 
+    # BREAKING CHANGE: 'sku' renamed to 'skuCode' on ProductDto
     ProductDto:
       type: object
-      required: [id, name, sku, status, createdAt, priceCount]
+      required: [id, name, skuCode, status, createdAt, priceCount]
       properties:
         id:
           type: integer
         name:
           type: string
-        sku:
+        skuCode:
           type: string
         status:
           $ref: "#/components/schemas/ProductStatus"
@@ -189,17 +190,19 @@ components:
         priceCount:
           type: integer
 
+    # BREAKING CHANGE: 'sku' renamed to 'skuCode' on CreateProductRequest
     CreateProductRequest:
       type: object
-      required: [name, sku]
+      required: [name, skuCode]
       properties:
         name:
           type: string
           maxLength: 200
-        sku:
+        skuCode:
           type: string
           maxLength: 50
 
+    # BREAKING CHANGE: 'sku' renamed to 'skuCode' on UpdateProductRequest
     UpdateProductRequest:
       type: object
       properties:
@@ -207,7 +210,7 @@ components:
           type: string
           maxLength: 200
           nullable: true
-        sku:
+        skuCode:
           type: string
           maxLength: 50
           nullable: true
