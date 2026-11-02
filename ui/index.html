@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🏗️ Station Retrofit — AI Migration & Contract Reviewer</title>
+    <style>
+        :root {
+            --bg: #0f172a;
+            --surface: #1e293b;
+            --surface-hover: #334155;
+            --border: #334155;
+            --text: #e2e8f0;
+            --text-muted: #94a3b8;
+            --accent: #3b82f6;
+            --accent-hover: #2563eb;
+            --green: #22c55e;
+            --green-bg: rgba(34, 197, 94, 0.1);
+            --red: #ef4444;
+            --red-bg: rgba(239, 68, 68, 0.1);
+            --yellow: #eab308;
+            --yellow-bg: rgba(234, 179, 8, 0.1);
+            --radius: 8px;
+            --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            --mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: var(--font);
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+        }
+
+        header {
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        header h1 {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        header .badge {
+            background: var(--accent);
+            color: white;
+            padding: 2px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 24px;
+            background: var(--surface);
+            padding: 4px;
+            border-radius: var(--radius);
+            width: fit-content;
+        }
+
+        .tab {
+            padding: 8px 20px;
+            border-radius: 6px;
+            border: none;
+            background: transparent;
+            color: var(--text-muted);
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.15s;
+            font-family: var(--font);
+        }
+
+        .tab:hover { color: var(--text); background: var(--surface-hover); }
+        .tab.active { background: var(--accent); color: white; }
+
+        .panel { display: none; }
+        .panel.active { display: block; }
+
+        .scenario-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .scenario-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 20px;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .scenario-card:hover {
+            border-color: var(--accent);
+            transform: translateY(-1px);
+        }
+
+        .scenario-card.active {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 1px var(--accent);
+        }
+
+        .scenario-card .number {
+            display: inline-block;
+            background: var(--surface-hover);
+            color: var(--text-muted);
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 28px;
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .scenario-card h3 {
+            font-size: 15px;
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+
+        .scenario-card p {
+            font-size: 13px;
+            color: var(--text-muted);
+            line-height: 1.5;
+        }
+
+        .severity-tag {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+            margin-left: 8px;
+        }
+
+        .severity-critical { background: var(--red-bg); color: var(--red); }
+        .severity-warning { background: var(--yellow-bg); color: var(--yellow); }
+        .severity-breaking { background: var(--red-bg); color: var(--red); }
+
+        .run-btn {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 10px 24px;
+            border-radius: var(--radius);
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: var(--font);
+            transition: background 0.15s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .run-btn:hover { background: var(--accent-hover); }
+        .run-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .run-btn .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .output-area {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            margin-top: 16px;
+            overflow: hidden;
+        }
+
+        .output-header {
+            padding: 12px 20px;
+            background: rgba(0,0,0,0.2);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .output-header h3 {
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .output-body {
+            padding: 20px;
+            font-family: var(--mono);
+            font-size: 13px;
+            line-height: 1.7;
+            white-space: pre-wrap;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        .output-body .pass { color: var(--green); }
+        .output-body .fail { color: var(--red); }
+        .output-body .warn { color: var(--yellow); }
+        .output-body .info { color: var(--accent); }
+        .output-body .muted { color: var(--text-muted); }
+        .output-body h1, .output-body h2, .output-body h3 {
+            font-family: var(--font);
+            margin: 16px 0 8px 0;
+        }
+        .output-body h1 { font-size: 18px; }
+        .output-body h2 { font-size: 15px; color: var(--accent); }
+        .output-body h3 { font-size: 14px; }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-muted);
+        }
+
+        .empty-state .icon { font-size: 48px; margin-bottom: 12px; }
+        .empty-state p { font-size: 14px; }
+
+        .stats {
+            display: flex;
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+
+        .stat {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 16px 24px;
+            text-align: center;
+        }
+
+        .stat .value {
+            font-size: 28px;
+            font-weight: 700;
+        }
+
+        .stat .label {
+            font-size: 12px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-top: 4px;
+        }
+
+        .file-ref {
+            background: rgba(59, 130, 246, 0.1);
+            border-left: 3px solid var(--accent);
+            padding: 4px 12px;
+            margin: 4px 0;
+            border-radius: 0 4px 4px 0;
+            font-size: 12px;
+        }
+
+        .how-it-works {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+
+        .how-it-works h2 {
+            font-size: 16px;
+            margin-bottom: 16px;
+        }
+
+        .pipeline {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .pipeline-step {
+            background: var(--surface-hover);
+            border-radius: 6px;
+            padding: 8px 16px;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .pipeline-arrow {
+            color: var(--text-muted);
+            font-size: 18px;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>🏗️ Station Retrofit</h1>
+        <span class="badge">AI for Brownfield Systems</span>
+        <span style="color: var(--text-muted); font-size: 13px; margin-left: auto;">Engineering Meetup Demo</span>
+    </header>
+
+    <div class="container">
+        <div class="stats">
+            <div class="stat">
+                <div class="value" style="color: var(--red)">3</div>
+                <div class="label">Migration Scenarios</div>
+            </div>
+            <div class="stat">
+                <div class="value" style="color: var(--yellow)">3</div>
+                <div class="label">Contract Drift Scenarios</div>
+            </div>
+            <div class="stat">
+                <div class="value" style="color: var(--green)">6</div>
+                <div class="label">Rules Checked</div>
+            </div>
+            <div class="stat">
+                <div class="value" style="color: var(--accent)">2</div>
+                <div class="label">AI Tools</div>
+            </div>
+        </div>
+
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab('migration')">🗄️ Migration Reviewer</button>
+            <button class="tab" onclick="switchTab('drift')">📋 Contract Drift Detector</button>
+        </div>
+
+        <!-- Migration Panel -->
+        <div id="panel-migration" class="panel active">
+            <div class="how-it-works">
+                <h2>How it works</h2>
+                <div class="pipeline">
+                    <div class="pipeline-step">📄 PR with migration</div>
+                    <span class="pipeline-arrow">→</span>
+                    <div class="pipeline-step">🔍 Deterministic checks</div>
+                    <span class="pipeline-arrow">→</span>
+                    <div class="pipeline-step">🤖 LLM rule review</div>
+                    <span class="pipeline-arrow">→</span>
+                    <div class="pipeline-step">💬 PR comment</div>
+                </div>
+            </div>
+
+            <h2 style="font-size: 15px; margin-bottom: 12px; color: var(--text-muted);">Select a scenario:</h2>
+            <div class="scenario-grid">
+                <div class="scenario-card" onclick="selectScenario('migration', 0)" id="m-card-0">
+                    <span class="number">01</span>
+                    <span class="severity-tag severity-critical">Critical</span>
+                    <h3>Column Drop Without Backfill</h3>
+                    <p>Columns dropped before data is migrated to the new table. All existing data permanently lost.</p>
+                </div>
+                <div class="scenario-card" onclick="selectScenario('migration', 1)" id="m-card-1">
+                    <span class="number">02</span>
+                    <span class="severity-tag severity-critical">Critical</span>
+                    <h3>Incomplete Down() Method</h3>
+                    <p>Up() adds 3 columns + index, Down() only removes 1. Rollback leaves orphaned columns.</p>
+                </div>
+                <div class="scenario-card" onclick="selectScenario('migration', 2)" id="m-card-2">
+                    <span class="number">03</span>
+                    <span class="severity-tag severity-warning">Warning</span>
+                    <h3>Non-Idempotent Backfill</h3>
+                    <p>INSERT without WHERE NOT EXISTS. Retry after partial failure duplicates all rows.</p>
+                </div>
+            </div>
+
+            <button class="run-btn" id="run-migration" onclick="runScenario('migration')" disabled>
+                <span id="migration-btn-text">Select a scenario to review</span>
+            </button>
+
+            <div id="migration-output"></div>
+        </div>
+
+        <!-- Contract Drift Panel -->
+        <div id="panel-drift" class="panel">
+            <div class="how-it-works">
+                <h2>How it works</h2>
+                <div class="pipeline">
+                    <div class="pipeline-step">📄 PR changes spec</div>
+                    <span class="pipeline-arrow">→</span>
+                    <div class="pipeline-step">🔍 Spec YAML diff</div>
+                    <span class="pipeline-arrow">→</span>
+                    <div class="pipeline-step">🔎 Frontend scan</div>
+                    <span class="pipeline-arrow">→</span>
+                    <div class="pipeline-step">🤖 LLM impact</div>
+                    <span class="pipeline-arrow">→</span>
+                    <div class="pipeline-step">💬 PR comment</div>
+                </div>
+            </div>
+
+            <h2 style="font-size: 15px; margin-bottom: 12px; color: var(--text-muted);">Select a scenario:</h2>
+            <div class="scenario-grid">
+                <div class="scenario-card" onclick="selectScenario('drift', 0)" id="d-card-0">
+                    <span class="number">04</span>
+                    <span class="severity-tag severity-breaking">Breaking</span>
+                    <h3>Removed Enum Value</h3>
+                    <p>ProductStatus.Discontinued removed from spec. 3 frontend components use it as a runtime value.</p>
+                </div>
+                <div class="scenario-card" onclick="selectScenario('drift', 1)" id="d-card-1">
+                    <span class="number">05</span>
+                    <span class="severity-tag severity-breaking">Breaking</span>
+                    <h3>Renamed DTO Property</h3>
+                    <p>sku → skuCode across 3 DTOs. 10 frontend file references will break silently.</p>
+                </div>
+                <div class="scenario-card" onclick="selectScenario('drift', 2)" id="d-card-2">
+                    <span class="number">06</span>
+                    <span class="severity-tag severity-warning">Warning</span>
+                    <h3>Optional → Required Field</h3>
+                    <p>validTo now required on CreatePriceRequest. Frontend form sends undefined — API returns 400.</p>
+                </div>
+            </div>
+
+            <button class="run-btn" id="run-drift" onclick="runScenario('drift')" disabled>
+                <span id="drift-btn-text">Select a scenario to review</span>
+            </button>
+
+            <div id="drift-output"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8080';
+
+        const scenarios = {
+            migration: [
+                { file: 'scenarios/01-bad-migration-no-backfill/BadMigration.cs', name: 'No Backfill' },
+                { file: 'scenarios/02-bad-migration-incomplete-down/BadMigration.cs', name: 'Incomplete Down()' },
+                { file: 'scenarios/03-bad-migration-non-idempotent/BadMigration.cs', name: 'Non-Idempotent SQL' },
+            ],
+            drift: [
+                { spec: 'scenarios/04-spec-removed-enum-value/modified-spec.yaml', name: 'Removed Enum' },
+                { spec: 'scenarios/05-spec-renamed-property/modified-spec.yaml', name: 'Renamed Property' },
+                { spec: 'scenarios/06-spec-optional-to-required/modified-spec.yaml', name: 'Optional → Required' },
+            ],
+        };
+
+        let selectedScenario = { migration: null, drift: null };
+
+        function switchTab(tab) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+            document.querySelector(`[onclick="switchTab('${tab}')"]`).classList.add('active');
+            document.getElementById(`panel-${tab}`).classList.add('active');
+        }
+
+        function selectScenario(type, index) {
+            const prefix = type === 'migration' ? 'm' : 'd';
+            document.querySelectorAll(`#panel-${type} .scenario-card`).forEach(c => c.classList.remove('active'));
+            document.getElementById(`${prefix}-card-${index}`).classList.add('active');
+            selectedScenario[type] = index;
+
+            const btn = document.getElementById(`run-${type}`);
+            btn.disabled = false;
+            const name = scenarios[type][index].name;
+            document.getElementById(`${type}-btn-text`).textContent = `🤖 Run AI Review: ${name}`;
+        }
+
+        async function runScenario(type) {
+            const index = selectedScenario[type];
+            if (index === null) return;
+
+            const btn = document.getElementById(`run-${type}`);
+            const btnText = document.getElementById(`${type}-btn-text`);
+            const outputDiv = document.getElementById(`${type}-output`);
+
+            btn.disabled = true;
+            btnText.innerHTML = '<span class="spinner"></span> Running AI review...';
+
+            try {
+                const scenario = scenarios[type][index];
+                let endpoint, body;
+
+                if (type === 'migration') {
+                    endpoint = '/api/review-migration';
+                    body = { file: scenario.file };
+                } else {
+                    endpoint = '/api/check-drift';
+                    body = {
+                        spec: scenario.spec,
+                        oldSpec: 'backend/Api/specs/api-spec.yaml',
+                        frontend: 'frontend/src',
+                    };
+                }
+
+                const resp = await fetch(`${API_BASE}${endpoint}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body),
+                });
+
+                const data = await resp.json();
+                renderOutput(outputDiv, data, type);
+            } catch (err) {
+                outputDiv.innerHTML = `
+                    <div class="output-area">
+                        <div class="output-header"><h3>⚠️ Error</h3></div>
+                        <div class="output-body">
+                            <span class="fail">Could not connect to the review server.</span>
+
+Make sure the server is running:
+  <span class="info">python ui/server.py</span>
+
+Error: ${err.message}
+                        </div>
+                    </div>`;
+            } finally {
+                btn.disabled = false;
+                const name = scenarios[type][index].name;
+                btnText.textContent = `🤖 Run AI Review: ${name}`;
+            }
+        }
+
+        function renderOutput(container, data, type) {
+            const md = data.markdown || data.output || JSON.stringify(data, null, 2);
+            const html = markdownToHtml(md);
+
+            container.innerHTML = `
+                <div class="output-area">
+                    <div class="output-header">
+                        <h3>🤖 AI Review Result</h3>
+                        <span style="font-size: 12px; color: var(--text-muted)">
+                            ${data.duration ? `${data.duration}s` : ''}
+                        </span>
+                    </div>
+                    <div class="output-body">${html}</div>
+                </div>`;
+        }
+
+        function markdownToHtml(md) {
+            return md
+                .replace(/^# (.+)$/gm, '<h1>$1</h1>')
+                .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+                .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+                .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+                .replace(/`([^`]+)`/g, '<code style="background:rgba(59,130,246,0.15);padding:1px 6px;border-radius:3px;font-size:12px">$1</code>')
+                .replace(/^- ✅/gm, '<span class="pass">  ✅</span>')
+                .replace(/^- ❌/gm, '<span class="fail">  ❌</span>')
+                .replace(/^- ⏭️/gm, '<span class="muted">  ⏭️</span>')
+                .replace(/🔴/g, '<span class="fail">🔴</span>')
+                .replace(/🟡/g, '<span class="warn">🟡</span>')
+                .replace(/🟢/g, '<span class="pass">🟢</span>')
+                .replace(/^> (.+)$/gm, '<div style="border-left:3px solid var(--accent);padding:4px 12px;margin:8px 0;color:var(--text-muted)">$1</div>')
+                .replace(/💡/g, '💡');
+        }
+    </script>
+</body>
+</html>

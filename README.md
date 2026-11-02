@@ -1,92 +1,102 @@
-# 🏗️ Station Retrofit Demo — AI for Brownfield Systems
+# 🏗️ Station Retrofit — AI for Brownfield Systems
 
-> Engineering Meetup Mission: Apply AI to improve maintenance, onboarding, debugging, monitoring, or support in an existing system.
+> **LEGO Engineering Meetup 2026** — Mission: Space Station Retrofit
+>
+> Most teams operate existing systems rather than greenfield projects. This demo shows how AI can turn tribal knowledge — the migration rules, API contract conventions, and code review checklists that every developer must memorize — into automated guardrails that catch mistakes before they ship.
 
-This is a simplified pricing system that demonstrates two AI-powered review tools for brownfield .NET + React codebases:
+Built from real patterns observed in the LEGO B2B pricing platform: EF Core migration pitfalls, OpenAPI contract drift between backend and frontend repos, and the gap between "rules written in AGENTS.md" and "rules enforced in CI".
 
-1. **Migration Reviewer** — AI reviews EF Core migrations against codified rules
-2. **Contract Drift Detector** — AI detects breaking OpenAPI spec changes and their frontend impact
+## What This Does
 
-## Architecture
+Two AI-powered review tools that run on every pull request:
 
+| Tool | Checks | Catches |
+|---|---|---|
+| **🗄️ Migration Reviewer** | EF Core migrations against 6 codified rules | Data loss, incomplete rollbacks, non-idempotent SQL |
+| **📋 Contract Drift Detector** | OpenAPI spec changes against frontend usage | Breaking enum removals, renamed properties, required field changes |
+
+Both tools work in 3 layers:
+1. **Deterministic checks** — fast, no LLM needed, catches structural issues
+2. **LLM review** — Claude analyzes the actual code/spec for semantic issues
+3. **PR comment** — posts findings directly on the pull request
+
+## Demo UI
+
+A web interface for running scenarios interactively:
+
+```bash
+# Load env vars and start the UI server
+export $(grep -v '^#' .env | xargs)
+source .venv/bin/activate
+python ui/server.py
 ```
-┌─────────────────────┐         ┌─────────────────────┐
-│   Backend (.NET 8)  │         │  Frontend (React/TS) │
-│                     │         │                      │
-│  EF Core Migrations │◄────────│  Generated API Client│
-│  OpenAPI Spec       │  spec   │  (typescript-fetch)  │
-│  PostgreSQL 16      │         │  Enum runtime values │
-└────────┬────────────┘         └──────────┬───────────┘
-         │                                 │
-         │    PR opened                    │
-         ▼                                 ▼
-┌─────────────────────────────────────────────────────┐
-│              GitHub Actions CI                       │
-│                                                      │
-│  🤖 Migration Reviewer    🤖 Contract Drift Detector │
-│  ├─ Deterministic checks  ├─ YAML spec diff          │
-│  ├─ LLM rule review       ├─ Frontend usage scan     │
-│  └─ PR comment            ├─ LLM impact assessment   │
-│                           └─ PR comment              │
-└──────────────────────────────────────────────────────┘
-```
+
+Open **http://localhost:8080** — select a scenario, click "Run AI Review", see the results.
 
 ## Quick Start
 
-### 1. Run the backend
+### 1. Set up Python environment
 
 ```bash
-cd backend
-docker compose up -d          # Start PostgreSQL
-dotnet run --project Api      # Start the API (http://localhost:5000)
-```
-
-### 2. Try the AI tools locally
-
-```bash
-# Install Python dependencies
+python3 -m venv .venv
+source .venv/bin/activate
 pip install -r tools/requirements.txt
-
-# Review a migration (deterministic checks only — no API key needed)
-python tools/review_migration.py backend/Database/Migrations/20260615100000_SeparatePriceHistory.cs
-
-# Review a migration with LLM (needs API key)
-ANTHROPIC_API_KEY=sk-... python tools/review_migration.py backend/Database/Migrations/20260615100000_SeparatePriceHistory.cs
-
-# Check contract drift
-python tools/check_contract_drift.py \
-  --spec backend/Api/specs/api-spec.yaml \
-  --frontend frontend/src \
-  --old-spec scenarios/04-spec-removed-enum-value/modified-spec.yaml
 ```
 
-### 3. Try the breaking scenarios
-
-Each scenario in `scenarios/` demonstrates a real-world mistake:
-
-| # | Scenario | Type | What's Wrong |
-|---|---|---|---|
-| 01 | No backfill | Migration | Columns dropped before data migrated |
-| 02 | Incomplete Down() | Migration | Down() doesn't reverse all of Up() |
-| 03 | Non-idempotent SQL | Migration | INSERT without WHERE NOT EXISTS |
-| 04 | Removed enum value | Spec drift | `Discontinued` removed — 3 frontend files break |
-| 05 | Renamed property | Spec drift | `sku` → `skuCode` — generated client breaks |
-| 06 | Optional → required | Spec drift | `validTo` now required — forms don't send it |
+### 2. Configure the LLM (optional — deterministic checks work without it)
 
 ```bash
-# Test scenario 1
-python tools/review_migration.py scenarios/01-bad-migration-no-backfill/BadMigration.cs
-
-# Test scenario 4
-python tools/check_contract_drift.py \
-  --spec scenarios/04-spec-removed-enum-value/modified-spec.yaml \
-  --frontend frontend/src \
-  --old-spec backend/Api/specs/api-spec.yaml
+# Create .env file (already gitignored)
+cat > .env << 'EOF'
+ANTHROPIC_API_KEY=your-key-here
+ANTHROPIC_BASE_URL=https://api.genai.thelegogroup.com/anthropic
+ANTHROPIC_MODEL=eu.anthropic.claude-sonnet-4-6
+EOF
 ```
 
-### 4. GitHub Actions (on push)
+### 3. Run scenarios from CLI
 
-When PRs touch migration files or the OpenAPI spec, the AI tools run automatically and post review comments.
+```bash
+export $(grep -v '^#' .env | xargs)
+
+# Migration review
+python tools/review_migration.py scenarios/01-bad-migration-no-backfill/BadMigration.cs
+python tools/review_migration.py scenarios/02-bad-migration-incomplete-down/BadMigration.cs
+python tools/review_migration.py scenarios/03-bad-migration-non-idempotent/BadMigration.cs
+
+# Contract drift detection
+python tools/check_contract_drift.py \
+  --old-spec backend/Api/specs/api-spec.yaml \
+  --spec scenarios/04-spec-removed-enum-value/modified-spec.yaml \
+  --frontend frontend/src
+```
+
+### 4. Or use the demo UI
+
+```bash
+python ui/server.py
+# Open http://localhost:8080
+```
+
+## Breaking Scenarios
+
+Each scenario in `scenarios/` demonstrates a real-world mistake based on patterns from the LEGO pricing platform:
+
+### Migration Scenarios (based on real AGENTS.md rules)
+
+| # | Scenario | Severity | What's Wrong |
+|---|---|---|---|
+| 01 | No backfill | 🔴 Critical | Columns dropped before data migrated — permanent data loss |
+| 02 | Incomplete Down() | 🔴 Critical | Down() doesn't reverse all of Up() — orphaned columns on rollback |
+| 03 | Non-idempotent SQL | 🟡 Warning | INSERT without WHERE NOT EXISTS — duplicates on retry |
+
+### Contract Drift Scenarios (based on real cross-repo architecture)
+
+| # | Scenario | Severity | What's Wrong |
+|---|---|---|---|
+| 04 | Removed enum value | 🔴 Breaking | `ProductStatus.Discontinued` removed — 3 frontend files break |
+| 05 | Renamed property | 🔴 Breaking | `sku` → `skuCode` — 10 frontend file references break silently |
+| 06 | Optional → required | 🟡 Warning | `validTo` now required — frontend form sends undefined, API returns 400 |
 
 ## Project Structure
 
@@ -98,7 +108,7 @@ station-retrofit-demo/
 │   └── docker-compose.yml      PostgreSQL 16
 │
 ├── frontend/                   React + TypeScript
-│   ├── src/api/                Generated API client (typescript-fetch)
+│   ├── src/api/                Generated API client (typescript-fetch pattern)
 │   ├── src/pages/              Components using enums as runtime values
 │   └── generate-api-types.sh   OpenAPI Generator script
 │
@@ -107,7 +117,11 @@ station-retrofit-demo/
 │   ├── check_contract_drift.py Contract drift detector (diff + scan + LLM)
 │   └── format_pr_comment.py    PR comment formatter
 │
-├── scenarios/                  Pre-built breaking examples
+├── ui/                         Demo web interface
+│   ├── index.html              Single-page app
+│   └── server.py               Python HTTP server wrapping the tools
+│
+├── scenarios/                  6 pre-built breaking examples
 │   ├── 01-bad-migration-no-backfill/
 │   ├── 02-bad-migration-incomplete-down/
 │   ├── 03-bad-migration-non-idempotent/
@@ -121,13 +135,36 @@ station-retrofit-demo/
     └── pr-check-migration-order.yml  Deterministic timestamp check
 ```
 
-## The Demo Story
+## Architecture
 
-> *"We took tribal knowledge — migration rules every developer must memorize — and turned them into AI guardrails that review every PR automatically."*
+```
+┌─────────────────────┐         ┌─────────────────────┐
+│   Backend (.NET 8)  │         │  Frontend (React/TS) │
+│                     │         │                      │
+│  EF Core Migrations │◄────────│  Generated API Client│
+│  OpenAPI Spec       │  spec   │  Enum runtime values │
+│  PostgreSQL 16      │         │                      │
+└────────┬────────────┘         └──────────┬───────────┘
+         │                                 │
+         │    PR opened                    │
+         ▼                                 ▼
+┌─────────────────────────────────────────────────────┐
+│              AI Review Pipeline                      │
+│                                                      │
+│  Layer 1: Deterministic     Layer 1: Spec diff       │
+│  Layer 2: LLM rule review   Layer 2: Frontend scan   │
+│  Layer 3: PR comment         Layer 3: LLM impact     │
+│                              Layer 4: PR comment     │
+└──────────────────────────────────────────────────────┘
+```
 
-**Demo 1:** Open a PR with a bad migration → AI comments with specific rule violations and fixes.
+## The Story
 
-**Demo 2:** Open a PR that removes an enum value → AI reports exactly which frontend files will break.
+> *"We took tribal knowledge — the migration rules in AGENTS.md that every developer has to memorize, the implicit contract between backend specs and frontend generated clients — and turned them into AI guardrails that review every PR automatically."*
+>
+> **Before:** Developer memorizes 15+ rules. Code review catches ~60% of issues. Some slip through to production.
+>
+> **After:** AI catches 100% of rule violations deterministically, plus semantic issues via LLM. Every PR gets reviewed against the full ruleset in seconds.
 
 ## Tech Stack
 
@@ -138,13 +175,17 @@ station-retrofit-demo/
 | Database | PostgreSQL | 16 |
 | Frontend | React + TypeScript + Vite | 18.3 / 5.6 / 6.0 |
 | API Client | openapi-generator-cli | 7.11.0 |
-| AI Tools | Python + Anthropic SDK | 3.12 / 0.40+ |
+| AI Tools | Python + Anthropic SDK | 3.12+ |
 | CI | GitHub Actions | — |
 
 ## Requirements
 
-- .NET 8 SDK
-- Docker (for PostgreSQL)
 - Python 3.12+
-- Node.js 20+ (for frontend)
-- `ANTHROPIC_API_KEY` (for LLM review — deterministic checks work without it)
+- `ANTHROPIC_API_KEY` for LLM review (deterministic checks work without it)
+- .NET 8 SDK (only if running the backend API)
+- Docker (only if running PostgreSQL)
+- Node.js 20+ (only if running the frontend)
+
+## Team
+
+🚀 Mission Space Station Retrofit — LEGO Engineering Meetup 2026

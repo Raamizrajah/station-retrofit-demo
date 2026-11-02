@@ -95,11 +95,19 @@ def _collect_schemas(spec: dict) -> dict[str, dict]:
     return dict((components.get("schemas") or {}).items())
 
 
-def _collect_enum_values(schema: dict) -> set[str]:
-    """Recursively collect all enum values in a schema."""
-    values: set[str] = set()
+def _collect_enum_values(schema: dict) -> dict[str, str]:
+    """Collect enum values mapped to their display names.
+
+    Returns {display_name: raw_value} using x-enum-varnames when available,
+    falling back to raw values as both key and value.
+    """
+    values: dict[str, str] = {}
     if "enum" in schema:
-        values.update(str(v) for v in schema["enum"])
+        raw = schema["enum"]
+        varnames = schema.get("x-enum-varnames", [])
+        for i, v in enumerate(raw):
+            name = varnames[i] if i < len(varnames) else str(v)
+            values[name] = str(v)
     for prop in (schema.get("properties") or {}).values():
         if isinstance(prop, dict):
             values.update(_collect_enum_values(prop))
@@ -143,11 +151,11 @@ def diff_specs(old_spec: dict, new_spec: dict) -> list[Change]:
         old_s = old_schemas[name]
         new_s = new_schemas[name]
 
-        # Enum values
+        # Enum values — compare by display name (x-enum-varnames when available)
         old_enums = _collect_enum_values(old_s)
         new_enums = _collect_enum_values(new_s)
-        for removed in old_enums - new_enums:
-            changes.append(Change("enum_removed", f"{name}.{removed}", "breaking", f"schemas/{name}", f"Enum value '{removed}' removed."))
+        for removed_name in set(old_enums) - set(new_enums):
+            changes.append(Change("enum_removed", f"{name}.{removed_name}", "breaking", f"schemas/{name}", f"Enum value '{removed_name}' removed."))
 
         # Properties
         old_props = _collect_properties(old_s)
