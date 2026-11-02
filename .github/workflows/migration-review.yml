@@ -40,16 +40,18 @@ jobs:
         if: steps.find-migrations.outputs.files != ''
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_BASE_URL: ${{ secrets.ANTHROPIC_BASE_URL }}
+          ANTHROPIC_MODEL: ${{ secrets.ANTHROPIC_MODEL }}
         run: |
           COMMENT=""
           while IFS= read -r file; do
             [ -z "$file" ] && continue
             echo "Reviewing: $file"
-            RESULT=$(python tools/review_migration.py "$file" 2>&1)
+            RESULT=$(python tools/review_migration.py "$file" 2>&1) || true
             COMMENT="${COMMENT}\n\n${RESULT}"
           done <<< "${{ steps.find-migrations.outputs.files }}"
-
-          echo "$COMMENT" > /tmp/migration-review.md
+          
+          echo -e "$COMMENT" > /tmp/migration-review.md
 
       - name: Post PR comment
         if: steps.find-migrations.outputs.files != ''
