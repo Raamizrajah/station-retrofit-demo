@@ -1,0 +1,68 @@
+name: Migration Review
+
+on:
+  pull_request:
+    paths:
+      - 'backend/Database/Migrations/**'
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  review-migrations:
+    name: AI Migration Review
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install -r tools/requirements.txt
+
+      - name: Find new migration files
+        id: find-migrations
+        run: |
+          BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          NEW_FILES=$(git diff --name-only --diff-filter=A "${BASE_SHA}"...HEAD -- 'backend/Database/Migrations/*.cs' | grep -v '.Designer.cs$' || true)
+          echo "files<<EOF" >> $GITHUB_OUTPUT
+          echo "$NEW_FILES" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Review each migration
+        if: steps.find-migrations.outputs.files != ''
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          COMMENT=""
+          while IFS= read -r file; do
+            [ -z "$file" ] && continue
+            echo "Reviewing: $file"
+            RESULT=$(python tools/review_migration.py "$file" 2>&1)
+            COMMENT="${COMMENT}\n\n${RESULT}"
+          done <<< "${{ steps.find-migrations.outputs.files }}"
+
+          echo "$COMMENT" > /tmp/migration-review.md
+
+      - name: Post PR comment
+        if: steps.find-migrations.outputs.files != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const body = fs.readFileSync('/tmp/migration-review.md', 'utf8');
+            if (body.trim()) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: `## 🤖 AI Migration Review\n\n${body}`
+              });
+            }

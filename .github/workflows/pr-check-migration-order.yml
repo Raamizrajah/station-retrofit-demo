@@ -1,0 +1,73 @@
+name: PR Check - Migration Order
+
+on:
+  pull_request:
+    paths:
+      - 'backend/Database/Migrations/**'
+
+permissions:
+  contents: read
+
+jobs:
+  check-migration-order:
+    name: Check migration order
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check that new migrations are last
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          MIGRATIONS_DIR="backend/Database/Migrations"
+
+          new_files=$(
+            git diff --name-only --diff-filter=A "${BASE_REF}"...HEAD -- "${MIGRATIONS_DIR}" \
+              | grep -E "^${MIGRATIONS_DIR}/[0-9]{14}_.+\.cs$" \
+              | grep -v '\.Designer\.cs$' \
+              || true
+          )
+
+          if [ -z "${new_files}" ]; then
+            echo "No new migration files detected. Skipping."
+            exit 0
+          fi
+
+          echo "Detected new migration files:"
+          echo "${new_files}"
+
+          all_files=$(
+            find "${MIGRATIONS_DIR}" -maxdepth 1 -type f -name '*.cs' \
+              ! -name '*.Designer.cs' \
+              ! -name '*ModelSnapshot.cs' \
+              | grep -E "^${MIGRATIONS_DIR}/[0-9]{14}_.+\.cs$" \
+              | LC_ALL=C sort
+          )
+
+          num_new=$(printf '%s\n' "${new_files}" | wc -l | tr -d '[:space:]')
+          total=$(printf '%s\n' "${all_files}" | wc -l | tr -d '[:space:]')
+          first_allowed=$((total - num_new + 1))
+          failed=0
+
+          while IFS= read -r f; do
+            filename=$(basename "${f}")
+            position=$(printf '%s\n' "${all_files}" | grep -nFx "${f}" | cut -d: -f1 || true)
+            if [ -z "${position}" ]; then
+              failed=1
+              echo "❌ '${filename}' not found in sorted list."
+            elif [ "${position}" -lt "${first_allowed}" ]; then
+              failed=1
+              echo "❌ '${filename}' is at position ${position} of ${total}, needs to be >= ${first_allowed}."
+            fi
+          done <<< "${new_files}"
+
+          if [ "${failed}" -ne 0 ]; then
+            echo "🚨 One or more migration files need a newer timestamp."
+            exit 1
+          fi
+
+          echo "✅ All new migrations are correctly positioned."
