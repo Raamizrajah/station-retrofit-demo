@@ -1,0 +1,261 @@
+openapi: 3.0.3
+info:
+  title: Station Retrofit API
+  version: v1
+  description: Simplified pricing system demo API for station retrofit projects.
+
+servers:
+  - url: http://localhost:5000
+    description: Local development
+
+paths:
+  /api/products:
+    get:
+      operationId: ListProducts
+      summary: List all products with price count
+      tags: [Products]
+      responses:
+        "200":
+          description: List of products
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProductDto"
+
+    post:
+      operationId: CreateProduct
+      summary: Create a new product
+      tags: [Products]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProductRequest"
+      responses:
+        "201":
+          description: Product created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductDto"
+        "400":
+          description: Invalid request
+
+  /api/products/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+
+    get:
+      operationId: GetProduct
+      summary: Get a single product with its prices
+      tags: [Products]
+      responses:
+        "200":
+          description: Product details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductDto"
+        "404":
+          description: Product not found
+
+    put:
+      operationId: UpdateProduct
+      summary: Update an existing product
+      tags: [Products]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProductRequest"
+      responses:
+        "200":
+          description: Product updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductDto"
+        "400":
+          description: Invalid request
+        "404":
+          description: Product not found
+
+    delete:
+      operationId: DeleteProduct
+      summary: Delete a product and its prices
+      tags: [Products]
+      responses:
+        "204":
+          description: Product deleted
+        "404":
+          description: Product not found
+
+  /api/prices:
+    get:
+      operationId: ListPrices
+      summary: List price entries, optionally filtered by product
+      tags: [Prices]
+      parameters:
+        - name: productId
+          in: query
+          required: false
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of price entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PriceEntryDto"
+
+    post:
+      operationId: CreatePrice
+      summary: Create a new price entry
+      tags: [Prices]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePriceRequest"
+      responses:
+        "201":
+          description: Price entry created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PriceEntryDto"
+        "400":
+          description: Invalid request (e.g. product not found)
+
+  /api/prices/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+
+    delete:
+      operationId: DeletePrice
+      summary: Delete a price entry
+      tags: [Prices]
+      responses:
+        "204":
+          description: Price entry deleted
+        "404":
+          description: Price entry not found
+
+components:
+  schemas:
+    ProductStatus:
+      type: integer
+      enum: [0, 1, 2, 3]
+      x-enum-varnames: [Draft, Active, Archived, Discontinued]
+      description: "0=Draft, 1=Active, 2=Archived, 3=Discontinued"
+
+    PriceType:
+      type: integer
+      enum: [0, 1, 2]
+      x-enum-varnames: [Retail, Wholesale, Partner]
+      description: "0=Retail, 1=Wholesale, 2=Partner"
+
+    ProductDto:
+      type: object
+      required: [id, name, sku, status, createdAt, priceCount]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        sku:
+          type: string
+        status:
+          $ref: "#/components/schemas/ProductStatus"
+        createdAt:
+          type: string
+          format: date-time
+        priceCount:
+          type: integer
+
+    CreateProductRequest:
+      type: object
+      required: [name, sku]
+      properties:
+        name:
+          type: string
+          maxLength: 200
+        sku:
+          type: string
+          maxLength: 50
+
+    UpdateProductRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 200
+          nullable: true
+        sku:
+          type: string
+          maxLength: 50
+          nullable: true
+        status:
+          $ref: "#/components/schemas/ProductStatus"
+
+    PriceEntryDto:
+      type: object
+      required: [id, productId, currency, amount, type, validFrom]
+      properties:
+        id:
+          type: integer
+        productId:
+          type: integer
+        currency:
+          type: string
+          maxLength: 3
+        amount:
+          type: number
+          format: double
+        type:
+          $ref: "#/components/schemas/PriceType"
+        validFrom:
+          type: string
+          format: date-time
+        validTo:
+          type: string
+          format: date-time
+          nullable: true
+
+    CreatePriceRequest:
+      type: object
+      required: [productId, currency, amount, type, validFrom]
+      properties:
+        productId:
+          type: integer
+        currency:
+          type: string
+          maxLength: 3
+        amount:
+          type: number
+          format: double
+        type:
+          $ref: "#/components/schemas/PriceType"
+        validFrom:
+          type: string
+          format: date-time
+        validTo:
+          type: string
+          format: date-time
+          nullable: true
