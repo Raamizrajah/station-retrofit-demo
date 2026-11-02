@@ -238,9 +238,10 @@ components:
           format: date-time
           nullable: true
 
+    # BREAKING CHANGE: 'validTo' changed from optional to required
     CreatePriceRequest:
       type: object
-      required: [productId, currency, amount, type, validFrom]
+      required: [productId, currency, amount, type, validFrom, validTo]
       properties:
         productId:
           type: integer
@@ -258,4 +259,3 @@ components:
         validTo:
           type: string
           format: date-time
-          nullable: true
