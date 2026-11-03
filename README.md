@@ -4,34 +4,43 @@
 >
 > Most teams operate existing systems rather than greenfield projects. This demo shows how AI can turn tribal knowledge — the migration rules, API contract conventions, and code review checklists that every developer must memorize — into automated guardrails that catch mistakes before they ship.
 
-Built from real patterns observed in the LEGO B2B pricing platform: EF Core migration pitfalls, OpenAPI contract drift between backend and frontend repos, and the gap between "rules written in AGENTS.md" and "rules enforced in CI".
-
 ## What This Does
 
-Two AI-powered review tools that run on every pull request:
+**6 AI-powered tools** covering 3 layers of brownfield system health:
 
-| Tool | Checks | Catches |
-|---|---|---|
-| **🗄️ Migration Reviewer** | EF Core migrations against 6 codified rules | Data loss, incomplete rollbacks, non-idempotent SQL |
-| **📋 Contract Drift Detector** | OpenAPI spec changes against frontend usage | Breaking enum removals, renamed properties, required field changes |
+### 🛡️ Prevention Layer
+| Tool | What it catches |
+|---|---|
+| **🗄️ Migration Reviewer** | Data loss, incomplete rollbacks, non-idempotent SQL in EF Core migrations |
+| **📋 Contract Drift Detector** | Breaking enum removals, renamed properties, required field changes in OpenAPI |
+| **🔐 Secret Scanner** | Hardcoded AWS keys, API tokens, passwords in any repo (YAML, Groovy, Rust, etc.) |
+| **🔄 Domain Model Drift** | Constraint mismatches when the same entity exists in multiple repos |
 
-Both tools work in 3 layers:
+### 📖 Understanding Layer
+| Tool | What it produces |
+|---|---|
+| **📝 Architecture Doc Generator** | System architecture docs from code — stacks, endpoints, data flow, Mermaid diagrams |
+
+### 👁️ Monitoring Layer
+| Tool | What it flags |
+|---|---|
+| **📊 Dependency/Infra Auditor** | EOL versions, CVEs, deprecated K8s APIs, risky infrastructure patterns |
+
+All tools work in 3 layers:
 1. **Deterministic checks** — fast, no LLM needed, catches structural issues
-2. **LLM review** — Claude analyzes the actual code/spec for semantic issues
-3. **PR comment** — posts findings directly on the pull request
+2. **LLM review** — Claude analyzes context for semantic issues and recommendations
+3. **Formatted output** — markdown reports for CLI, UI, or CI comments
 
-## Demo UI
+## Live Demo: ClutchPower Repos
 
-A web interface for running scenarios interactively:
+The tools run against 4 real LEGO Education brownfield repositories:
 
-```bash
-# Load env vars and start the UI server
-export $(grep -v '^#' .env | xargs)
-source .venv/bin/activate
-python ui/server.py
-```
-
-Open **http://localhost:8080** — select a scenario, click "Run AI Review", see the results.
+| Repo | Stack | AI Findings |
+|---|---|---|
+| `domain-redirect-admin` | Grails 3.2 / Groovy | 🟡 Hibernate 5.1 EOL, Selenium 2.47, deprecated Gradle config |
+| `domain-redirect-database` | KubeDB Helm | 🔴 **Real AWS keys in git**, Postgres 11.2 EOL, KubeDB v1alpha1 |
+| `domain-redirect-lookup` | Ratpack 1.4.5 / Groovy | 🔴 Logback CVE, ancient JDBC driver, model drift vs admin |
+| `school-search-rs` | Rust / Axum 0.4 | 🟡 axum 3 versions behind, Alpine EOL, Rust 1.67 outdated |
 
 ## Quick Start
 
@@ -46,7 +55,6 @@ pip install -r tools/requirements.txt
 ### 2. Configure the LLM (optional — deterministic checks work without it)
 
 ```bash
-# Create .env file (already gitignored)
 cat > .env << 'EOF'
 ANTHROPIC_API_KEY=your-key-here
 ANTHROPIC_BASE_URL=https://api.genai.thelegogroup.com/anthropic
@@ -54,17 +62,34 @@ ANTHROPIC_MODEL=eu.anthropic.claude-sonnet-4-6
 EOF
 ```
 
-### 3. Run scenarios from CLI
+### 3. Run tools from CLI
 
 ```bash
 export $(grep -v '^#' .env | xargs)
 
-# Migration review
-python tools/review_migration.py scenarios/01-bad-migration-no-backfill/BadMigration.cs
-python tools/review_migration.py scenarios/02-bad-migration-incomplete-down/BadMigration.cs
-python tools/review_migration.py scenarios/03-bad-migration-non-idempotent/BadMigration.cs
+# 🔐 Secret Scanner — finds real AWS keys
+python tools/scan_secrets.py /path/to/clutchpower-domain-redirect-database-master
 
-# Contract drift detection
+# 🔄 Domain Model Drift — finds DnsRedirect constraint mismatch
+python tools/check_model_drift.py \
+  /path/to/clutchpower-domain-redirect-admin-master \
+  /path/to/clutchpower-domain-redirect-lookup-master \
+  DnsRedirect
+
+# 📝 Architecture Doc — generates system map from 4 repos
+python tools/generate_arch_doc.py \
+  /path/to/clutchpower-domain-redirect-admin-master \
+  /path/to/clutchpower-domain-redirect-database-master \
+  /path/to/clutchpower-domain-redirect-lookup-master \
+  /path/to/clutchpower-school-search-rs-master
+
+# 📊 Dependency Audit — flags EOL versions and CVEs
+python tools/audit_deps.py /path/to/clutchpower-domain-redirect-lookup-master
+
+# 🗄️ Migration Review (demo scenarios)
+python tools/review_migration.py scenarios/01-bad-migration-no-backfill/BadMigration.cs
+
+# 📋 Contract Drift (demo scenarios)
 python tools/check_contract_drift.py \
   --old-spec backend/Api/specs/api-spec.yaml \
   --spec scenarios/04-spec-removed-enum-value/modified-spec.yaml \
@@ -78,11 +103,13 @@ python ui/server.py
 # Open http://localhost:8080
 ```
 
+The UI has 6 tabs — 2 for pre-built demo scenarios (migration + contract drift) and 4 for live brownfield analysis with repo path dropdowns.
+
 ## Breaking Scenarios
 
-Each scenario in `scenarios/` demonstrates a real-world mistake based on patterns from the LEGO pricing platform:
+Each scenario in `scenarios/` demonstrates a real-world mistake:
 
-### Migration Scenarios (based on real AGENTS.md rules)
+### Migration Scenarios
 
 | # | Scenario | Severity | What's Wrong |
 |---|---|---|---|
@@ -90,7 +117,7 @@ Each scenario in `scenarios/` demonstrates a real-world mistake based on pattern
 | 02 | Incomplete Down() | 🔴 Critical | Down() doesn't reverse all of Up() — orphaned columns on rollback |
 | 03 | Non-idempotent SQL | 🟡 Warning | INSERT without WHERE NOT EXISTS — duplicates on retry |
 
-### Contract Drift Scenarios (based on real cross-repo architecture)
+### Contract Drift Scenarios
 
 | # | Scenario | Severity | What's Wrong |
 |---|---|---|---|
@@ -102,26 +129,20 @@ Each scenario in `scenarios/` demonstrates a real-world mistake based on pattern
 
 ```
 station-retrofit-demo/
-├── backend/                    .NET 8 API + EF Core + PostgreSQL
-│   ├── Api/                    Controllers, Models, DTOs, Swagger
-│   ├── Database/Migrations/    6 pre-seeded EF Core migrations
-│   └── docker-compose.yml      PostgreSQL 16
+├── tools/                         AI review tools (Python)
+│   ├── review_migration.py        🗄️ Migration reviewer
+│   ├── check_contract_drift.py    📋 Contract drift detector
+│   ├── scan_secrets.py            🔐 Secret scanner
+│   ├── check_model_drift.py       🔄 Domain model drift detector
+│   ├── generate_arch_doc.py       📝 Architecture doc generator
+│   ├── audit_deps.py              📊 Dependency/infra auditor
+│   └── format_pr_comment.py       PR comment formatter
 │
-├── frontend/                   React + TypeScript
-│   ├── src/api/                Generated API client (typescript-fetch pattern)
-│   ├── src/pages/              Components using enums as runtime values
-│   └── generate-api-types.sh   OpenAPI Generator script
+├── ui/                            Demo web interface
+│   ├── index.html                 Single-page app (6 tool tabs)
+│   └── server.py                  Python HTTP server (10 API endpoints)
 │
-├── tools/                      AI review tools (Python)
-│   ├── review_migration.py     Migration reviewer (deterministic + LLM)
-│   ├── check_contract_drift.py Contract drift detector (diff + scan + LLM)
-│   └── format_pr_comment.py    PR comment formatter
-│
-├── ui/                         Demo web interface
-│   ├── index.html              Single-page app
-│   └── server.py               Python HTTP server wrapping the tools
-│
-├── scenarios/                  6 pre-built breaking examples
+├── scenarios/                     6 pre-built breaking examples
 │   ├── 01-bad-migration-no-backfill/
 │   ├── 02-bad-migration-incomplete-down/
 │   ├── 03-bad-migration-non-idempotent/
@@ -129,62 +150,46 @@ station-retrofit-demo/
 │   ├── 05-spec-renamed-property/
 │   └── 06-spec-optional-to-required/
 │
-└── .github/workflows/          CI automation
-    ├── migration-review.yml    AI migration review on PR
-    ├── contract-drift.yml      AI contract drift check on PR
-    └── pr-check-migration-order.yml  Deterministic timestamp check
+├── backend/                       .NET 8 API + EF Core + PostgreSQL
+├── frontend/                      React + TypeScript
+│
+├── .github/workflows/             CI automation
+│   ├── migration-review.yml       AI migration review on PR
+│   ├── contract-drift.yml         AI contract drift check on PR
+│   └── pr-check-migration-order.yml
+│
+└── docs/plans/                    Planning docs
 ```
 
 ## Architecture
 
 ```
-┌─────────────────────┐         ┌─────────────────────┐
-│   Backend (.NET 8)  │         │  Frontend (React/TS) │
-│                     │         │                      │
-│  EF Core Migrations │◄────────│  Generated API Client│
-│  OpenAPI Spec       │  spec   │  Enum runtime values │
-│  PostgreSQL 16      │         │                      │
-└────────┬────────────┘         └──────────┬───────────┘
-         │                                 │
-         │    PR opened                    │
-         ▼                                 ▼
-┌─────────────────────────────────────────────────────┐
-│              AI Review Pipeline                      │
-│                                                      │
-│  Layer 1: Deterministic     Layer 1: Spec diff       │
-│  Layer 2: LLM rule review   Layer 2: Frontend scan   │
-│  Layer 3: PR comment         Layer 3: LLM impact     │
-│                              Layer 4: PR comment     │
-└──────────────────────────────────────────────────────┘
+                    ┌──────────────────────────────────────┐
+                    │        AI Review Pipeline             │
+                    │                                       │
+ Any repo path ───► │  Layer 1: Deterministic checks        │
+                    │  Layer 2: LLM review (Claude)         │
+                    │  Layer 3: Formatted report             │
+                    └──────────┬───────────────────────────┘
+                               │
+              ┌────────────────┼────────────────┐
+              ▼                ▼                 ▼
+         CLI output      Demo UI          GitHub Actions
+                      (localhost:8080)     (PR comments)
 ```
 
 ## The Story
 
-> *"We took tribal knowledge — the migration rules in AGENTS.md that every developer has to memorize, the implicit contract between backend specs and frontend generated clients — and turned them into AI guardrails that review every PR automatically."*
+> *"We took tribal knowledge — the migration rules in AGENTS.md, the implicit API contracts, the security checks no one runs, the dependency versions no one tracks — and turned them into AI guardrails that analyze every brownfield system automatically."*
 >
-> **Before:** Developer memorizes 15+ rules. Code review catches ~60% of issues. Some slip through to production.
+> **Before:** Developer memorizes rules. Code review catches ~60%. Some slip to production. No one checks for secrets, model drift, or EOL versions.
 >
-> **After:** AI catches 100% of rule violations deterministically, plus semantic issues via LLM. Every PR gets reviewed against the full ruleset in seconds.
-
-## Tech Stack
-
-| Layer | Technology | Version |
-|---|---|---|
-| Backend | .NET 8 Minimal API | 8.0 |
-| ORM | EF Core + Npgsql | 8.0.11 |
-| Database | PostgreSQL | 16 |
-| Frontend | React + TypeScript + Vite | 18.3 / 5.6 / 6.0 |
-| API Client | openapi-generator-cli | 7.11.0 |
-| AI Tools | Python + Anthropic SDK | 3.12+ |
-| CI | GitHub Actions | — |
+> **After:** AI catches rule violations deterministically, analyzes semantic issues via LLM, and surfaces hidden risks across repos in seconds.
 
 ## Requirements
 
 - Python 3.12+
 - `ANTHROPIC_API_KEY` for LLM review (deterministic checks work without it)
-- .NET 8 SDK (only if running the backend API)
-- Docker (only if running PostgreSQL)
-- Node.js 20+ (only if running the frontend)
 
 ## Team
 
