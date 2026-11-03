@@ -423,15 +423,50 @@ class ReviewHandler(SimpleHTTPRequestHandler):
         if body is None:
             self._send_json({"error": "Invalid JSON in request body"}, 400)
             return
-        repo_path = self._validate_str(body, "repoPath")
-        if not repo_path or not Path(repo_path).is_dir():
-            self._send_json({"error": f"Directory not found: {repo_path}"}, 404)
+        # Support both single repoPath and multiple repoPaths
+        repo_paths = body.get("repoPaths") or []
+        if not repo_paths:
+            single = self._validate_str(body, "repoPath")
+            if single:
+                repo_paths = [single]
+        if not repo_paths:
+            self._send_json({"error": "No repositories selected"}, 400)
             return
-        cmd_args = [repo_path]
+        for rp in repo_paths:
+            if not Path(rp).is_dir():
+                self._send_json({"error": f"Directory not found: {rp}"}, 404)
+                return
         context = self._validate_str(body, "context")
-        if context:
-            cmd_args += ["--context", context]
-        self._send_json(self._run_tool("scan_secrets.py", cmd_args, self._validate_str(body, "tone")))
+        tone = self._validate_str(body, "tone")
+        combined = self._run_multi_single("scan_secrets.py", repo_paths, context, tone)
+        self._send_json(combined)
+
+    def _run_multi_single(self, tool: str, repo_paths: list, context: str | None, tone: str | None) -> dict:
+        """Run a single-repo tool for each path, combining results."""
+        if len(repo_paths) == 1:
+            cmd_args = [repo_paths[0]]
+            if context:
+                cmd_args += ["--context", context]
+            return self._run_tool(tool, cmd_args, tone)
+        # Multiple repos — run each and merge markdown
+        import time
+        t0 = time.time()
+        all_md = []
+        combined_exit = 0
+        for rp in repo_paths:
+            cmd_args = [rp]
+            if context:
+                cmd_args += ["--context", context]
+            result = self._run_tool(tool, cmd_args, tone)
+            all_md.append(result.get("markdown", ""))
+            if result.get("exit_code", 0) != 0:
+                combined_exit = result["exit_code"]
+        duration = round(time.time() - t0, 1)
+        return {
+            "markdown": "\n\n---\n\n".join(all_md),
+            "exit_code": combined_exit,
+            "duration": duration,
+        }
 
     def _handle_model_drift(self):
         body = self._read_body()
@@ -554,15 +589,22 @@ class ReviewHandler(SimpleHTTPRequestHandler):
         if body is None:
             self._send_json({"error": "Invalid JSON in request body"}, 400)
             return
-        repo_path = self._validate_str(body, "repoPath")
-        if not repo_path or not Path(repo_path).is_dir():
-            self._send_json({"error": f"Directory not found: {repo_path}"}, 404)
+        repo_paths = body.get("repoPaths") or []
+        if not repo_paths:
+            single = self._validate_str(body, "repoPath")
+            if single:
+                repo_paths = [single]
+        if not repo_paths:
+            self._send_json({"error": "No repositories selected"}, 400)
             return
-        cmd_args = [repo_path]
+        for rp in repo_paths:
+            if not Path(rp).is_dir():
+                self._send_json({"error": f"Directory not found: {rp}"}, 404)
+                return
         context = self._validate_str(body, "context")
-        if context:
-            cmd_args += ["--context", context]
-        self._send_json(self._run_tool("audit_deps.py", cmd_args, self._validate_str(body, "tone")))
+        tone = self._validate_str(body, "tone")
+        combined = self._run_multi_single("audit_deps.py", repo_paths, context, tone)
+        self._send_json(combined)
 
     def _handle_extract_requirements(self):
         body = self._read_body()

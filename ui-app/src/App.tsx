@@ -17,7 +17,7 @@ import {
   Tabs,
   Tag,
 } from "@lego/connect-components-react";
-import { markdownToHtml } from "./markdown";
+import { markdownToHtmlWithMermaid, renderMermaidBlocks } from "./markdown";
 
 /* ─── Tone context ─── */
 
@@ -175,6 +175,16 @@ function OutputDisplay({
       ? "Clean"
       : "Issues found";
 
+  const htmlContent = markdownToHtmlWithMermaid(result.markdown);
+
+  // Render mermaid diagrams after the HTML is in the DOM
+  const outputRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (outputRef.current) {
+      renderMermaidBlocks();
+    }
+  }, [htmlContent]);
+
   return (
     <div>
       <div className="result-bar">
@@ -188,8 +198,9 @@ function OutputDisplay({
         )}
       </div>
       <div
+        ref={outputRef}
         className="output-area"
-        dangerouslySetInnerHTML={{ __html: markdownToHtml(result.markdown) }}
+        dangerouslySetInnerHTML={{ __html: htmlContent }}
       />
     </div>
   );
@@ -211,38 +222,6 @@ function Field({
       <Label forId={id}>{label}</Label>
       {children}
     </div>
-  );
-}
-
-function RepoSelect({
-  id,
-  label,
-  repos,
-  value,
-  onChange,
-}: {
-  id: string;
-  label: string;
-  repos: RepoInfo[];
-  value: string;
-  onChange: (path: string) => void;
-}) {
-  return (
-    <Field id={id} label={label}>
-      <Select
-        id={id}
-        value={value}
-        onChange={(e: ChangeEvent<HTMLSelectElement>) =>
-          onChange(e.target.value)
-        }
-      >
-        {repos.map((r) => (
-          <option key={r.path} value={r.path}>
-            {r.name}
-          </option>
-        ))}
-      </Select>
-    </Field>
   );
 }
 
@@ -475,25 +454,39 @@ function DriftPanel({
 }
 
 function SecretsPanel({ repos }: { repos: RepoInfo[] }) {
-  const [repo, setRepo] = useState(repos[0]?.path ?? "");
+  const [overrides, setOverrides] = useState<Record<string, boolean>>({});
   const [context, setContext] = useState("");
   const { result, loading, run } = useToolRunner();
 
+  function toggle(path: string) {
+    return (_e: ChangeEvent<HTMLInputElement>, checked: boolean) => {
+      setOverrides((prev) => ({ ...prev, [path]: checked }));
+    };
+  }
+
+  const repoPaths = repos
+    .filter((r) => overrides[r.path] ?? true)
+    .map((r) => r.path);
+
   return (
     <div className="tool-form">
-      <RepoSelect
-        id="secrets-repo"
-        label="Repository"
-        repos={repos}
-        value={repo}
-        onChange={setRepo}
-      />
+      <div className="checkbox-group">
+        {repos.map((r) => (
+          <Checkbox
+            key={r.path}
+            label={r.name}
+            checked={overrides[r.path] ?? true}
+            onChange={toggle(r.path)}
+          />
+        ))}
+      </div>
       <ContextInput value={context} onChange={setContext} />
       <Button
         variant="primary"
-        onClick={() => run("scan-secrets", { repoPath: repo, context })}
+        onClick={() => run("scan-secrets", { repoPaths, context })}
         loading={loading}
         loadingText="Scanning…"
+        disabled={repoPaths.length === 0}
       >
         Scan for Secrets
       </Button>
@@ -848,25 +841,39 @@ function ScenarioPlannerPanel({ repos }: { repos: RepoInfo[] }) {
 }
 
 function AuditPanel({ repos }: { repos: RepoInfo[] }) {
-  const [repo, setRepo] = useState(repos[0]?.path ?? "");
+  const [overrides, setOverrides] = useState<Record<string, boolean>>({});
   const [context, setContext] = useState("");
   const { result, loading, run } = useToolRunner();
 
+  function toggle(path: string) {
+    return (_e: ChangeEvent<HTMLInputElement>, checked: boolean) => {
+      setOverrides((prev) => ({ ...prev, [path]: checked }));
+    };
+  }
+
+  const repoPaths = repos
+    .filter((r) => overrides[r.path] ?? true)
+    .map((r) => r.path);
+
   return (
     <div className="tool-form">
-      <RepoSelect
-        id="audit-repo"
-        label="Repository"
-        repos={repos}
-        value={repo}
-        onChange={setRepo}
-      />
+      <div className="checkbox-group">
+        {repos.map((r) => (
+          <Checkbox
+            key={r.path}
+            label={r.name}
+            checked={overrides[r.path] ?? true}
+            onChange={toggle(r.path)}
+          />
+        ))}
+      </div>
       <ContextInput value={context} onChange={setContext} />
       <Button
         variant="primary"
-        onClick={() => run("audit-deps", { repoPath: repo, context })}
+        onClick={() => run("audit-deps", { repoPaths, context })}
         loading={loading}
         loadingText="Auditing…"
+        disabled={repoPaths.length === 0}
       >
         Run Dependency Audit
       </Button>
