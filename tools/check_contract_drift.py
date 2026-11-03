@@ -298,7 +298,7 @@ def run_llm_assessment(changes: list[Change], frontend_matches: list[FrontendMat
     if len(user_message) > 80_000:
         user_message = user_message[:80_000] + "\n\n> ⚠️ Prompt truncated to fit API limits."
     if context:
-        user_message = f"## 🎯 Focus Area\nFocus your analysis on: {context}\nPrioritize findings related to this area. Still report critical issues outside this scope, but keep the focus tight.\n\n" + user_message
+        user_message = f"## 🎯 Focus Area: {context}\nONLY include information relevant to this focus area. OMIT entire sections that have no relevant findings — do not show empty sections or unrelated information. If a section has a mix, include only the relevant items.\n\n" + user_message
     response = client.messages.create(
         model=os.environ.get("ANTHROPIC_MODEL", "eu.anthropic.claude-sonnet-4-6"),
         max_tokens=2048,

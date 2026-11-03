@@ -990,7 +990,7 @@ def run_llm_analysis(scan: dict, api_key: str, context: str = "", tone: str = "t
     if len(user_message) > 80_000:
         user_message = user_message[:80_000] + "\n\n> ⚠️ Prompt truncated to fit API limits."
     if context:
-        user_message = f"## 🎯 Focus Area\nFocus your analysis on: {context}\nPrioritize findings related to this area. Still report critical issues outside this scope, but keep the focus tight.\n\n" + user_message
+        user_message = f"## 🎯 Focus Area: {context}\nONLY include information relevant to this focus area. OMIT entire sections that have no relevant findings — do not show empty sections or unrelated information. If a section has a mix, include only the relevant items.\n\n" + user_message
 
     base_url = os.environ.get("ANTHROPIC_BASE_URL", "https://api.anthropic.com")
     client = anthropic.Anthropic(api_key=api_key, base_url=base_url)
