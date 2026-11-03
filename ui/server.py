@@ -39,29 +39,33 @@ class ReviewHandler(SimpleHTTPRequestHandler):
         else:
             self.send_error(404, "Not Found")
 
-    def _read_body(self) -> dict:
+    def _read_body(self) -> dict | None:
         length = int(self.headers.get("Content-Length", 0))
         raw = self.rfile.read(length)
-        return json.loads(raw) if raw else {}
+        try:
+            return json.loads(raw) if raw else {}
+        except json.JSONDecodeError:
+            return None
 
     def _send_json(self, data: dict, status: int = 200):
         body = json.dumps(data).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
-        self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
 
     def do_OPTIONS(self):
         self.send_response(204)
-        self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "POST, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.end_headers()
 
     def _handle_migration_review(self):
         body = self._read_body()
+        if body is None:
+            self._send_json({"error": "Invalid JSON in request body"}, 400)
+            return
         filepath = body.get("file", "")
 
         full_path = PROJECT_ROOT / filepath
@@ -76,7 +80,7 @@ class ReviewHandler(SimpleHTTPRequestHandler):
             [sys.executable, str(PROJECT_ROOT / "tools" / "review_migration.py"), str(full_path)],
             capture_output=True,
             text=True,
-            timeout=120,
+            timeout=180,
             env=env,
             cwd=str(PROJECT_ROOT),
         )
@@ -92,6 +96,9 @@ class ReviewHandler(SimpleHTTPRequestHandler):
 
     def _handle_drift_check(self):
         body = self._read_body()
+        if body is None:
+            self._send_json({"error": "Invalid JSON in request body"}, 400)
+            return
         spec = body.get("spec", "")
         old_spec = body.get("oldSpec", "")
         frontend = body.get("frontend", "")
@@ -117,7 +124,7 @@ class ReviewHandler(SimpleHTTPRequestHandler):
             cmd,
             capture_output=True,
             text=True,
-            timeout=120,
+            timeout=180,
             env=env,
             cwd=str(PROJECT_ROOT),
         )
@@ -157,6 +164,9 @@ class ReviewHandler(SimpleHTTPRequestHandler):
 
     def _handle_scan_secrets(self):
         body = self._read_body()
+        if body is None:
+            self._send_json({"error": "Invalid JSON in request body"}, 400)
+            return
         repo_path = body.get("repoPath", "")
         if not repo_path or not Path(repo_path).is_dir():
             self._send_json({"error": f"Directory not found: {repo_path}"}, 404)
@@ -165,6 +175,9 @@ class ReviewHandler(SimpleHTTPRequestHandler):
 
     def _handle_model_drift(self):
         body = self._read_body()
+        if body is None:
+            self._send_json({"error": "Invalid JSON in request body"}, 400)
+            return
         repo_a = body.get("repoA", "")
         repo_b = body.get("repoB", "")
         entity = body.get("entity", "")
@@ -179,6 +192,9 @@ class ReviewHandler(SimpleHTTPRequestHandler):
 
     def _handle_arch_doc(self):
         body = self._read_body()
+        if body is None:
+            self._send_json({"error": "Invalid JSON in request body"}, 400)
+            return
         repo_paths = body.get("repoPaths", [])
         if not repo_paths:
             self._send_json({"error": "At least one repo path required"}, 400)
@@ -191,6 +207,9 @@ class ReviewHandler(SimpleHTTPRequestHandler):
 
     def _handle_audit_deps(self):
         body = self._read_body()
+        if body is None:
+            self._send_json({"error": "Invalid JSON in request body"}, 400)
+            return
         repo_path = body.get("repoPath", "")
         if not repo_path or not Path(repo_path).is_dir():
             self._send_json({"error": f"Directory not found: {repo_path}"}, 404)
@@ -200,7 +219,7 @@ class ReviewHandler(SimpleHTTPRequestHandler):
 
 def main():
     port = int(os.environ.get("PORT", 8080))
-    server = HTTPServer(("0.0.0.0", port), ReviewHandler)
+    server = HTTPServer(("127.0.0.1", port), ReviewHandler)
     print(f"🏗️  Station Retrofit UI running at http://localhost:{port}")
     print(f"   Project root: {PROJECT_ROOT}")
     print(f"   API key: {'✅ configured' if os.environ.get('ANTHROPIC_API_KEY') else '⚠️  not set (deterministic checks only)'}")

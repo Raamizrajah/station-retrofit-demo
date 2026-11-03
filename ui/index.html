@@ -605,10 +605,13 @@
         let selectedScenario = { migration: null, drift: null };
 
         function switchTab(tab) {
-            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            const clickedBtn = document.querySelector(`[onclick="switchTab('${tab}')"]`);
+            if (clickedBtn) {
+                const tabGroup = clickedBtn.closest('.tabs');
+                tabGroup.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                clickedBtn.classList.add('active');
+            }
             document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-            const tabBtn = document.querySelector(`[onclick="switchTab('${tab}')"]`);
-            if (tabBtn) tabBtn.classList.add('active');
             const panel = document.getElementById(`panel-${tab}`);
             if (panel) panel.classList.add('active');
         }

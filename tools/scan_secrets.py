@@ -66,7 +66,9 @@ def shannon_entropy(data: str) -> float:
 
 
 def mask_value(value: str) -> str:
-    """Show first 8 chars + ... + last 4 chars. Never expose full secret."""
+    """Show partial value. Never expose full secret."""
+    if len(value) <= 8:
+        return value[:2] + "***"
     if len(value) <= 16:
         return value[:4] + "..." + value[-2:]
     return value[:8] + "..." + value[-4:]

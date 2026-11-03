@@ -127,7 +127,7 @@ def scan_build_gradle(filepath: Path, rel: str) -> list[dict]:
             # Logback
             if artifact.startswith("logback"):
                 vt = parse_version_tuple(version)
-                if vt and len(vt) >= 2 and vt[0] == 1 and vt[1] == 2:
+                if vt and len(vt) >= 2 and vt[0] == 1 and vt[1] == 2 and (len(vt) < 3 or vt[2] < 9):
                     findings.append(finding(
                         rel, lineno, f"logback ({artifact})", version,
                         "Logback 1.2.x has CVE-2021-42550 (JNDI RCE)", "critical", "1.4.x+",
@@ -430,7 +430,7 @@ def collect_files(repo_path: Path) -> dict[str, list[Path]]:
                 result["requirements.txt"].append(fpath)
             elif fname == "Dockerfile":
                 result["Dockerfile"].append(fpath)
-            elif fname == "Chart.yaml" and "chart" in str(root_path).lower():
+            elif fname == "Chart.yaml":
                 result["Chart.yaml"].append(fpath)
             elif fname == "values.yaml":
                 result["values.yaml"].append(fpath)
@@ -508,7 +508,7 @@ def run_llm_review(findings: list[dict], api_key: str) -> dict | None:
         return None
 
     if not findings:
-        return None
+        return {"prioritized_findings": [], "overall_health_score": 100, "summary": "No findings to review."}
 
     findings_text = json.dumps(findings, indent=2)
     user_message = f"## Deterministic scan findings\n\n```json\n{findings_text}\n```"
