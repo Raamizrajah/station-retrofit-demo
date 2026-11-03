@@ -884,9 +884,14 @@ function AuditPanel({ repos }: { repos: RepoInfo[] }) {
 export default function App() {
   const [discovery, setDiscovery] = useState<DiscoveryData | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [repos, setRepos] = useState<RepoInfo[]>([]);
+  const [allRepos, setAllRepos] = useState<RepoInfo[]>([]);
+  const [selectedPaths, setSelectedPaths] = useState<Set<string>>(new Set());
+  const [repoFilter, setRepoFilter] = useState("");
   const [customPath, setCustomPath] = useState("");
   const [tone, setTone] = useState<Tone>("technical");
+
+  // Derived: active repos for tools
+  const repos = allRepos.filter((r) => selectedPaths.has(r.path));
 
   // Load discovery data on mount
   useEffect(() => {
@@ -894,23 +899,48 @@ export default function App() {
       .then((r) => r.json())
       .then((data: DiscoveryData) => {
         setDiscovery(data);
-        setRepos(data.repos);
+        setAllRepos(data.repos);
+        // Select all by default
+        setSelectedPaths(new Set(data.repos.map((r: RepoInfo) => r.path)));
       })
       .catch((err) => setError(err.message));
   }, []);
 
+  function toggleRepoSelection(path: string) {
+    setSelectedPaths((prev) => {
+      const next = new Set(prev);
+      if (next.has(path)) next.delete(path);
+      else next.add(path);
+      return next;
+    });
+  }
+
+  function selectAll() {
+    setSelectedPaths(new Set(allRepos.map((r) => r.path)));
+  }
+
+  function deselectAll() {
+    setSelectedPaths(new Set());
+  }
+
   function addRepo() {
     const path = customPath.trim();
     if (!path) return;
-    if (repos.some((r) => r.path === path)) return;
-    const name = path.split("/").pop() ?? path;
-    setRepos((prev) => [...prev, { path, name }]);
+    if (allRepos.some((r) => r.path === path)) {
+      // Already known — just select it
+      setSelectedPaths((prev) => new Set([...prev, path]));
+    } else {
+      const name = path.split("/").pop() ?? path;
+      setAllRepos((prev) => [...prev, { path, name }]);
+      setSelectedPaths((prev) => new Set([...prev, path]));
+    }
     setCustomPath("");
   }
 
-  function removeRepo(path: string) {
-    setRepos((prev) => prev.filter((r) => r.path !== path));
-  }
+  const filterLower = repoFilter.toLowerCase();
+  const filteredRepos = allRepos.filter((r) =>
+    r.name.toLowerCase().includes(filterLower),
+  );
 
   if (error) {
     return (
@@ -962,30 +992,65 @@ export default function App() {
       <details className="repo-section" open>
         <summary className="repo-summary">
           <strong>Repositories</strong>
-          <span className="repo-count">{repos.length} loaded</span>
+          <span className="repo-count">
+            {selectedPaths.size} of {allRepos.length} selected
+          </span>
         </summary>
         <div className="repo-body">
-          <div className="repo-chips">
-            {repos.map((r) => (
-              <div key={r.path} className="repo-chip">
-                <span className="repo-chip-name">{r.name}</span>
-                <button
-                  className="repo-chip-remove"
-                  onClick={() => removeRepo(r.path)}
-                  title={`Remove ${r.name}`}
-                  type="button"
-                  aria-label={`Remove ${r.name}`}
-                >
-                  ×
-                </button>
-              </div>
-            ))}
+          <div className="repo-toolbar">
+            <input
+              className="repo-filter"
+              type="text"
+              placeholder="🔍 Filter repositories…"
+              value={repoFilter}
+              onChange={(e) => setRepoFilter(e.target.value)}
+            />
+            <button
+              type="button"
+              className="repo-action-btn"
+              onClick={selectAll}
+              title="Select all"
+            >
+              Select all
+            </button>
+            <button
+              type="button"
+              className="repo-action-btn"
+              onClick={deselectAll}
+              title="Deselect all"
+            >
+              Deselect all
+            </button>
           </div>
+
+          <div className="repo-picker">
+            {filteredRepos.length === 0 && (
+              <div className="repo-empty">
+                No repositories match "{repoFilter}"
+              </div>
+            )}
+            {filteredRepos.map((r) => {
+              const isSelected = selectedPaths.has(r.path);
+              return (
+                <button
+                  key={r.path}
+                  type="button"
+                  className={`repo-chip ${isSelected ? "repo-chip--selected" : "repo-chip--unselected"}`}
+                  onClick={() => toggleRepoSelection(r.path)}
+                  title={isSelected ? `Deselect ${r.name}` : `Select ${r.name}`}
+                >
+                  <span className="repo-chip-icon">{isSelected ? "✓" : "+"}</span>
+                  <span className="repo-chip-name">{r.name}</span>
+                </button>
+              );
+            })}
+          </div>
+
           <div className="repo-add">
             <input
               className="repo-input"
               type="text"
-              placeholder="Add repo path…"
+              placeholder="Add custom repo path…"
               value={customPath}
               onChange={(e) => setCustomPath(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && addRepo()}
