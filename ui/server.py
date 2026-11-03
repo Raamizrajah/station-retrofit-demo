@@ -28,6 +28,14 @@ class ReviewHandler(SimpleHTTPRequestHandler):
             self._handle_migration_review()
         elif path == "/api/check-drift":
             self._handle_drift_check()
+        elif path == "/api/scan-secrets":
+            self._handle_scan_secrets()
+        elif path == "/api/check-model-drift":
+            self._handle_model_drift()
+        elif path == "/api/generate-arch-doc":
+            self._handle_arch_doc()
+        elif path == "/api/audit-deps":
+            self._handle_audit_deps()
         else:
             self.send_error(404, "Not Found")
 
@@ -122,6 +130,72 @@ class ReviewHandler(SimpleHTTPRequestHandler):
             "exit_code": result.returncode,
             "duration": duration,
         })
+
+
+    def _run_tool(self, tool_name: str, args: list[str]) -> dict:
+        """Run a tool script and return {markdown, exit_code, duration}."""
+        start = time.time()
+        env = {**os.environ, "PYTHONUNBUFFERED": "1"}
+
+        result = subprocess.run(
+            [sys.executable, str(PROJECT_ROOT / "tools" / tool_name)] + args,
+            capture_output=True,
+            text=True,
+            timeout=180,
+            env=env,
+            cwd=str(PROJECT_ROOT),
+        )
+
+        duration = round(time.time() - start, 1)
+        output = result.stdout or result.stderr
+
+        return {
+            "markdown": output,
+            "exit_code": result.returncode,
+            "duration": duration,
+        }
+
+    def _handle_scan_secrets(self):
+        body = self._read_body()
+        repo_path = body.get("repoPath", "")
+        if not repo_path or not Path(repo_path).is_dir():
+            self._send_json({"error": f"Directory not found: {repo_path}"}, 404)
+            return
+        self._send_json(self._run_tool("scan_secrets.py", [repo_path]))
+
+    def _handle_model_drift(self):
+        body = self._read_body()
+        repo_a = body.get("repoA", "")
+        repo_b = body.get("repoB", "")
+        entity = body.get("entity", "")
+        if not entity:
+            self._send_json({"error": "Entity name required"}, 400)
+            return
+        for p in [repo_a, repo_b]:
+            if not p or not Path(p).is_dir():
+                self._send_json({"error": f"Directory not found: {p}"}, 404)
+                return
+        self._send_json(self._run_tool("check_model_drift.py", [repo_a, repo_b, entity]))
+
+    def _handle_arch_doc(self):
+        body = self._read_body()
+        repo_paths = body.get("repoPaths", [])
+        if not repo_paths:
+            self._send_json({"error": "At least one repo path required"}, 400)
+            return
+        for p in repo_paths:
+            if not Path(p).is_dir():
+                self._send_json({"error": f"Directory not found: {p}"}, 404)
+                return
+        self._send_json(self._run_tool("generate_arch_doc.py", repo_paths))
+
+    def _handle_audit_deps(self):
+        body = self._read_body()
+        repo_path = body.get("repoPath", "")
+        if not repo_path or not Path(repo_path).is_dir():
+            self._send_json({"error": f"Directory not found: {repo_path}"}, 404)
+            return
+        self._send_json(self._run_tool("audit_deps.py", [repo_path]))
 
 
 def main():

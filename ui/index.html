@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🏗️ Station Retrofit — AI Migration & Contract Reviewer</title>
+    <title>🏗️ Station Retrofit — AI for Brownfield Systems</title>
     <style>
         :root {
             --bg: #0f172a;
@@ -325,26 +325,35 @@
     <div class="container">
         <div class="stats">
             <div class="stat">
-                <div class="value" style="color: var(--red)">3</div>
-                <div class="label">Migration Scenarios</div>
+                <div class="value" style="color: var(--accent)">6</div>
+                <div class="label">AI Tools</div>
             </div>
             <div class="stat">
-                <div class="value" style="color: var(--yellow)">3</div>
-                <div class="label">Contract Drift Scenarios</div>
+                <div class="value" style="color: var(--red)">3</div>
+                <div class="label">Layers</div>
+            </div>
+            <div class="stat">
+                <div class="value" style="color: var(--yellow)">4</div>
+                <div class="label">Live Repos</div>
             </div>
             <div class="stat">
                 <div class="value" style="color: var(--green)">6</div>
-                <div class="label">Rules Checked</div>
-            </div>
-            <div class="stat">
-                <div class="value" style="color: var(--accent)">2</div>
-                <div class="label">AI Tools</div>
+                <div class="label">Scenarios</div>
             </div>
         </div>
 
+        <h2 style="font-size: 13px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">Demo Scenarios</h2>
         <div class="tabs">
-            <button class="tab active" onclick="switchTab('migration')">🗄️ Migration Reviewer</button>
-            <button class="tab" onclick="switchTab('drift')">📋 Contract Drift Detector</button>
+            <button class="tab active" onclick="switchTab('migration')">🗄️ Migrations</button>
+            <button class="tab" onclick="switchTab('drift')">📋 Contract Drift</button>
+        </div>
+
+        <h2 style="font-size: 13px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin: 24px 0 8px 0;">Brownfield Tools (Live Repos)</h2>
+        <div class="tabs">
+            <button class="tab" onclick="switchTab('secrets')">🔐 Secret Scanner</button>
+            <button class="tab" onclick="switchTab('modeldrift')">🔄 Model Drift</button>
+            <button class="tab" onclick="switchTab('archdoc')">📝 Architecture Doc</button>
+            <button class="tab" onclick="switchTab('audit')">📊 Dependency Audit</button>
         </div>
 
         <!-- Migration Panel -->
@@ -436,6 +445,145 @@
 
             <div id="drift-output"></div>
         </div>
+        <!-- Secret Scanner Panel -->
+        <div id="panel-secrets" class="panel">
+            <div class="how-it-works">
+                <h2>🔐 Secret Scanner</h2>
+                <div class="pipeline">
+                    <div class="pipeline-step">📂 Repo path</div>
+                    <span class="pipeline-arrow">→</span>
+                    <div class="pipeline-step">🔍 Pattern + entropy scan</div>
+                    <span class="pipeline-arrow">→</span>
+                    <div class="pipeline-step">🤖 LLM classification</div>
+                    <span class="pipeline-arrow">→</span>
+                    <div class="pipeline-step">📋 Secret report</div>
+                </div>
+            </div>
+            <div style="margin-bottom: 16px;">
+                <label style="font-size: 13px; color: var(--text-muted); display: block; margin-bottom: 6px;">Repository path:</label>
+                <select id="secrets-repo" style="width: 100%; padding: 10px; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius); font-family: var(--mono); font-size: 13px;">
+                    <option value="">Select a repo...</option>
+                    <option value="/Users/dkmurara/Documents/github/clutchpower-domain-redirect-database-master" selected>📦 domain-redirect-database (has AWS keys!)</option>
+                    <option value="/Users/dkmurara/Documents/github/clutchpower-domain-redirect-admin-master">📦 domain-redirect-admin</option>
+                    <option value="/Users/dkmurara/Documents/github/clutchpower-domain-redirect-lookup-master">📦 domain-redirect-lookup</option>
+                    <option value="/Users/dkmurara/Documents/github/clutchpower-school-search-rs-master">📦 school-search-rs</option>
+                </select>
+            </div>
+            <button class="run-btn" onclick="runBrownfield('secrets')">
+                <span id="secrets-btn-text">🔐 Scan for Secrets</span>
+            </button>
+            <div id="secrets-output"></div>
+        </div>
+
+        <!-- Model Drift Panel -->
+        <div id="panel-modeldrift" class="panel">
+            <div class="how-it-works">
+                <h2>🔄 Domain Model Drift Detector</h2>
+                <div class="pipeline">
+                    <div class="pipeline-step">📂 Two repo paths + entity</div>
+                    <span class="pipeline-arrow">→</span>
+                    <div class="pipeline-step">🔍 Constraint parsing + diff</div>
+                    <span class="pipeline-arrow">→</span>
+                    <div class="pipeline-step">🤖 LLM impact analysis</div>
+                    <span class="pipeline-arrow">→</span>
+                    <div class="pipeline-step">📋 Drift report</div>
+                </div>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+                <div>
+                    <label style="font-size: 13px; color: var(--text-muted); display: block; margin-bottom: 6px;">Repo A:</label>
+                    <select id="modeldrift-repoA" style="width: 100%; padding: 10px; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius); font-family: var(--mono); font-size: 13px;">
+                        <option value="/Users/dkmurara/Documents/github/clutchpower-domain-redirect-admin-master" selected>📦 domain-redirect-admin</option>
+                        <option value="/Users/dkmurara/Documents/github/clutchpower-domain-redirect-lookup-master">📦 domain-redirect-lookup</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="font-size: 13px; color: var(--text-muted); display: block; margin-bottom: 6px;">Repo B:</label>
+                    <select id="modeldrift-repoB" style="width: 100%; padding: 10px; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius); font-family: var(--mono); font-size: 13px;">
+                        <option value="/Users/dkmurara/Documents/github/clutchpower-domain-redirect-lookup-master" selected>📦 domain-redirect-lookup</option>
+                        <option value="/Users/dkmurara/Documents/github/clutchpower-domain-redirect-admin-master">📦 domain-redirect-admin</option>
+                    </select>
+                </div>
+            </div>
+            <div style="margin-bottom: 16px;">
+                <label style="font-size: 13px; color: var(--text-muted); display: block; margin-bottom: 6px;">Entity name:</label>
+                <select id="modeldrift-entity" style="width: 100%; padding: 10px; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius); font-family: var(--mono); font-size: 13px;">
+                    <option value="DnsRedirect" selected>DnsRedirect (has constraint drift!)</option>
+                    <option value="DnsDomain">DnsDomain (should be clean)</option>
+                </select>
+            </div>
+            <button class="run-btn" onclick="runBrownfield('modeldrift')">
+                <span id="modeldrift-btn-text">🔄 Check Model Drift</span>
+            </button>
+            <div id="modeldrift-output"></div>
+        </div>
+
+        <!-- Architecture Doc Panel -->
+        <div id="panel-archdoc" class="panel">
+            <div class="how-it-works">
+                <h2>📝 Architecture Doc Generator</h2>
+                <div class="pipeline">
+                    <div class="pipeline-step">📂 Multiple repo paths</div>
+                    <span class="pipeline-arrow">→</span>
+                    <div class="pipeline-step">🔍 Structural inventory</div>
+                    <span class="pipeline-arrow">→</span>
+                    <div class="pipeline-step">🤖 LLM synthesis</div>
+                    <span class="pipeline-arrow">→</span>
+                    <div class="pipeline-step">📄 Architecture doc</div>
+                </div>
+            </div>
+            <div style="margin-bottom: 16px;">
+                <label style="font-size: 13px; color: var(--text-muted); display: block; margin-bottom: 6px;">Select repos to document:</label>
+                <div style="display: grid; gap: 8px;">
+                    <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; padding: 8px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); cursor: pointer;">
+                        <input type="checkbox" class="archdoc-repo" value="/Users/dkmurara/Documents/github/clutchpower-domain-redirect-admin-master" checked> 📦 domain-redirect-admin (Grails CRUD)
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; padding: 8px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); cursor: pointer;">
+                        <input type="checkbox" class="archdoc-repo" value="/Users/dkmurara/Documents/github/clutchpower-domain-redirect-database-master" checked> 📦 domain-redirect-database (KubeDB Helm)
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; padding: 8px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); cursor: pointer;">
+                        <input type="checkbox" class="archdoc-repo" value="/Users/dkmurara/Documents/github/clutchpower-domain-redirect-lookup-master" checked> 📦 domain-redirect-lookup (Ratpack)
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; padding: 8px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); cursor: pointer;">
+                        <input type="checkbox" class="archdoc-repo" value="/Users/dkmurara/Documents/github/clutchpower-school-search-rs-master" checked> 📦 school-search-rs (Rust/Axum)
+                    </label>
+                </div>
+            </div>
+            <button class="run-btn" onclick="runBrownfield('archdoc')">
+                <span id="archdoc-btn-text">📝 Generate Architecture Doc</span>
+            </button>
+            <div id="archdoc-output"></div>
+        </div>
+
+        <!-- Dependency Audit Panel -->
+        <div id="panel-audit" class="panel">
+            <div class="how-it-works">
+                <h2>📊 Dependency & Infrastructure Auditor</h2>
+                <div class="pipeline">
+                    <div class="pipeline-step">📂 Repo path</div>
+                    <span class="pipeline-arrow">→</span>
+                    <div class="pipeline-step">🔍 Manifest parsing + EOL check</div>
+                    <span class="pipeline-arrow">→</span>
+                    <div class="pipeline-step">🤖 LLM risk assessment</div>
+                    <span class="pipeline-arrow">→</span>
+                    <div class="pipeline-step">📋 Audit report</div>
+                </div>
+            </div>
+            <div style="margin-bottom: 16px;">
+                <label style="font-size: 13px; color: var(--text-muted); display: block; margin-bottom: 6px;">Repository path:</label>
+                <select id="audit-repo" style="width: 100%; padding: 10px; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius); font-family: var(--mono); font-size: 13px;">
+                    <option value="">Select a repo...</option>
+                    <option value="/Users/dkmurara/Documents/github/clutchpower-domain-redirect-database-master" selected>📦 domain-redirect-database (Postgres 11.2 EOL!)</option>
+                    <option value="/Users/dkmurara/Documents/github/clutchpower-domain-redirect-admin-master">📦 domain-redirect-admin</option>
+                    <option value="/Users/dkmurara/Documents/github/clutchpower-domain-redirect-lookup-master">📦 domain-redirect-lookup (Logback CVE!)</option>
+                    <option value="/Users/dkmurara/Documents/github/clutchpower-school-search-rs-master">📦 school-search-rs</option>
+                </select>
+            </div>
+            <button class="run-btn" onclick="runBrownfield('audit')">
+                <span id="audit-btn-text">📊 Run Dependency Audit</span>
+            </button>
+            <div id="audit-output"></div>
+        </div>
     </div>
 
     <script>
@@ -459,8 +607,10 @@
         function switchTab(tab) {
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
             document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-            document.querySelector(`[onclick="switchTab('${tab}')"]`).classList.add('active');
-            document.getElementById(`panel-${tab}`).classList.add('active');
+            const tabBtn = document.querySelector(`[onclick="switchTab('${tab}')"]`);
+            if (tabBtn) tabBtn.classList.add('active');
+            const panel = document.getElementById(`panel-${tab}`);
+            if (panel) panel.classList.add('active');
         }
 
         function selectScenario(type, index) {
@@ -546,8 +696,69 @@ Error: ${err.message}
                 </div>`;
         }
 
+        async function runBrownfield(tool) {
+            const btn = document.querySelector(`#panel-${tool} .run-btn`);
+            const btnText = document.getElementById(`${tool}-btn-text`);
+            const outputDiv = document.getElementById(`${tool}-output`);
+            const origText = btnText.textContent;
+
+            btn.disabled = true;
+            btnText.innerHTML = '<span class="spinner"></span> Running AI analysis...';
+
+            try {
+                let endpoint, body;
+
+                if (tool === 'secrets') {
+                    endpoint = '/api/scan-secrets';
+                    body = { repoPath: document.getElementById('secrets-repo').value };
+                } else if (tool === 'modeldrift') {
+                    endpoint = '/api/check-model-drift';
+                    body = {
+                        repoA: document.getElementById('modeldrift-repoA').value,
+                        repoB: document.getElementById('modeldrift-repoB').value,
+                        entity: document.getElementById('modeldrift-entity').value,
+                    };
+                } else if (tool === 'archdoc') {
+                    endpoint = '/api/generate-arch-doc';
+                    const checked = document.querySelectorAll('.archdoc-repo:checked');
+                    body = { repoPaths: Array.from(checked).map(c => c.value) };
+                } else if (tool === 'audit') {
+                    endpoint = '/api/audit-deps';
+                    body = { repoPath: document.getElementById('audit-repo').value };
+                }
+
+                const resp = await fetch(`${API_BASE}${endpoint}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body),
+                });
+
+                const data = await resp.json();
+                renderOutput(outputDiv, data, tool);
+            } catch (err) {
+                outputDiv.innerHTML = `
+                    <div class="output-area">
+                        <div class="output-header"><h3>⚠️ Error</h3></div>
+                        <div class="output-body"><span class="fail">${err.message}</span></div>
+                    </div>`;
+            } finally {
+                btn.disabled = false;
+                btnText.textContent = origText;
+            }
+        }
+
         function markdownToHtml(md) {
-            return md
+            // Convert markdown tables to HTML
+            let html = md.replace(/^(\|.+\|)\n(\|[-| :]+\|)\n((?:\|.+\|\n?)*)/gm, (match, header, sep, body) => {
+                const ths = header.split('|').filter(c => c.trim()).map(c => `<th style="padding:6px 12px;text-align:left;border-bottom:2px solid var(--border)">${c.trim()}</th>`).join('');
+                const rows = body.trim().split('\n').map(row => {
+                    const tds = row.split('|').filter(c => c.trim()).map(c => `<td style="padding:6px 12px;border-bottom:1px solid var(--border)">${c.trim()}</td>`).join('');
+                    return `<tr>${tds}</tr>`;
+                }).join('');
+                return `<table style="width:100%;border-collapse:collapse;margin:12px 0;font-size:13px"><thead><tr>${ths}</tr></thead><tbody>${rows}</tbody></table>`;
+            });
+
+            return html
                 .replace(/^# (.+)$/gm, '<h1>$1</h1>')
                 .replace(/^## (.+)$/gm, '<h2>$1</h2>')
                 .replace(/^### (.+)$/gm, '<h3>$1</h3>')
@@ -559,6 +770,7 @@ Error: ${err.message}
                 .replace(/🔴/g, '<span class="fail">🔴</span>')
                 .replace(/🟡/g, '<span class="warn">🟡</span>')
                 .replace(/🟢/g, '<span class="pass">🟢</span>')
+                .replace(/⚪/g, '⚪')
                 .replace(/^> (.+)$/gm, '<div style="border-left:3px solid var(--accent);padding:4px 12px;margin:8px 0;color:var(--text-muted)">$1</div>')
                 .replace(/💡/g, '💡');
         }
