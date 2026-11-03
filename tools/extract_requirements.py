@@ -934,38 +934,39 @@ def format_deterministic(scan: dict) -> str:
 # ---------------------------------------------------------------------------
 
 SYSTEM_PROMPT = """\
-You are a senior software architect analyzing a legacy/brownfield repository.
+You are a business analyst reverse-engineering a legacy/brownfield system.
 Given the extracted code intelligence (routes, models, validation rules, config, and key source files),
-produce a comprehensive analysis in markdown:
+produce a BUSINESS-FOCUSED analysis. Do NOT cover architecture, infrastructure, or deployment — \
+a separate Architecture tool handles those.
 
-## 1. System Purpose & Functionality
-What does this system do? What is its role in the broader architecture?
+Focus on what the system DOES, not how it's built.
+
+## 1. System Purpose
+One paragraph: what business problem does this system solve? Who uses it?
 
 ## 2. Business Rules (extracted from code)
-List specific, concrete business rules found in the code. Each rule should reference the source file.
+List every concrete business rule found in the code. Each rule must reference the source file.
 Format: "- **Rule:** [description] (source: `file.ext`)"
+Group by domain area (e.g. "User Management", "Pricing", "Redirects").
 
-## 3. Domain Model
-Describe the key entities, their relationships, and important constraints.
+## 3. Domain Model & Entities
+Key entities, their relationships, and business constraints (not technical schema details).
 
-## 4. API / Interface Contract
-What endpoints exist? What data flows in and out?
+## 4. Validation & Data Integrity Rules
+What input is accepted/rejected? What constraints enforce data quality?
 
 ## 5. Implicit Requirements
-Requirements not explicitly stated but implied by the code:
-- Performance constraints (timeouts, batch sizes, caching)
-- Security requirements (auth, validation, input sanitization)
-- Data integrity rules (unique constraints, cascades, required fields)
-- Operational requirements (health checks, logging, monitoring)
+Requirements implied but not documented:
+- Performance expectations (timeouts, caching, batch sizes)
+- Security rules (auth, roles, input sanitization)
+- Data lifecycle (retention, cascading deletes, soft deletes)
 
-## 6. Technical Debt & Risks
-Patterns that suggest risk or missing requirements:
-- Hardcoded values that should be configurable
-- Missing validation or error handling
-- Dead code or unused features
-- Inconsistencies
+## 6. Business Risk & Knowledge Gaps
+- Hardcoded business values that should be configurable
+- Undocumented decision logic (magic numbers, unexplained conditions)
+- Missing validation that could lead to bad data
 
-Be specific and reference actual code. Do not invent rules not supported by the evidence."""
+Be specific and reference actual code. Do not invent rules not supported by evidence."""
 
 
 def run_llm_analysis(scan: dict, api_key: str, context: str = "", tone: str = "technical") -> str | None:

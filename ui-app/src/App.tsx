@@ -691,20 +691,19 @@ function ModelDriftPanel({ repos }: { repos: RepoInfo[] }) {
 }
 
 function ArchDocPanel({ repos }: { repos: RepoInfo[] }) {
-  const [selected, setSelected] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(repos.map((r) => [r.path, true])),
-  );
+  const [overrides, setOverrides] = useState<Record<string, boolean>>({});
   const [context, setContext] = useState("");
   const { result, loading, run } = useToolRunner();
 
   function toggle(path: string) {
     return (_e: ChangeEvent<HTMLInputElement>, checked: boolean) => {
-      setSelected((prev) => ({ ...prev, [path]: checked }));
+      setOverrides((prev) => ({ ...prev, [path]: checked }));
     };
   }
 
+  // Default: all repos selected; overrides track user changes
   const repoPaths = repos
-    .filter((r) => selected[r.path])
+    .filter((r) => overrides[r.path] ?? true)
     .map((r) => r.path);
 
   return (
@@ -714,7 +713,7 @@ function ArchDocPanel({ repos }: { repos: RepoInfo[] }) {
           <Checkbox
             key={r.path}
             label={r.name}
-            checked={selected[r.path] ?? false}
+            checked={overrides[r.path] ?? true}
             onChange={toggle(r.path)}
           />
         ))}
@@ -735,20 +734,19 @@ function ArchDocPanel({ repos }: { repos: RepoInfo[] }) {
 }
 
 function RequirementsPanel({ repos }: { repos: RepoInfo[] }) {
-  const [selected, setSelected] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(repos.map((r, i) => [r.path, i < 1])),
-  );
+  const [overrides, setOverrides] = useState<Record<string, boolean>>({});
   const [context, setContext] = useState("");
   const { result, loading, run } = useToolRunner();
 
   function toggle(path: string) {
     return (_e: ChangeEvent<HTMLInputElement>, checked: boolean) => {
-      setSelected((prev) => ({ ...prev, [path]: checked }));
+      setOverrides((prev) => ({ ...prev, [path]: checked }));
     };
   }
 
+  // Default: all repos selected; overrides track user changes
   const repoPaths = repos
-    .filter((r) => selected[r.path])
+    .filter((r) => overrides[r.path] ?? true)
     .map((r) => r.path);
 
   return (
@@ -762,7 +760,7 @@ function RequirementsPanel({ repos }: { repos: RepoInfo[] }) {
             <Checkbox
               key={r.path}
               label={r.name}
-              checked={selected[r.path] ?? false}
+              checked={overrides[r.path] ?? true}
               onChange={toggle(r.path)}
             />
           ))}
@@ -784,21 +782,19 @@ function RequirementsPanel({ repos }: { repos: RepoInfo[] }) {
 }
 
 function ScenarioPlannerPanel({ repos }: { repos: RepoInfo[] }) {
-  const [selected, setSelected] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(repos.map((r, i) => [r.path, i < 1])),
-  );
+  const [overrides, setOverrides] = useState<Record<string, boolean>>({});
   const [scenario, setScenario] = useState("");
   const [context, setContext] = useState("");
   const { result, loading, run } = useToolRunner();
 
   function toggle(path: string) {
     return (_e: ChangeEvent<HTMLInputElement>, checked: boolean) => {
-      setSelected((prev) => ({ ...prev, [path]: checked }));
+      setOverrides((prev) => ({ ...prev, [path]: checked }));
     };
   }
 
   const repoPaths = repos
-    .filter((r) => selected[r.path])
+    .filter((r) => overrides[r.path] ?? true)
     .map((r) => r.path);
 
   return (
@@ -812,7 +808,7 @@ function ScenarioPlannerPanel({ repos }: { repos: RepoInfo[] }) {
             <Checkbox
               key={r.path}
               label={r.name}
-              checked={selected[r.path] ?? false}
+              checked={overrides[r.path] ?? true}
               onChange={toggle(r.path)}
             />
           ))}
