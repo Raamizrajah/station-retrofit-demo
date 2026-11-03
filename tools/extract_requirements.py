@@ -19,6 +19,8 @@ SKIP_DIRS = {
     ".gradle", ".idea", ".vscode", "vendor", "bin", "obj", ".terraform",
 }
 
+SKIP_FILE_PATTERNS = {"jquery", ".min.js", ".min.css", "vendor", "polyfill", "bundle"}
+
 MAX_FILE_SIZE = 100_000  # 100KB
 
 
@@ -783,6 +785,10 @@ def scan_repo(repo_path: Path) -> dict:
             continue
         file_count += 1
         rel = str(fpath.relative_to(repo_path))
+        # Skip vendor/minified files — noisy false positives
+        rel_lower = rel.lower()
+        if any(p in rel_lower for p in SKIP_FILE_PATTERNS):
+            continue
         content = safe_read(fpath)
         if not content:
             continue
@@ -804,13 +810,22 @@ def scan_repo(repo_path: Path) -> dict:
         configs.extend(extract_config(content, rel))
         errors.extend(extract_error_handling(content, rel))
 
+    # Deduplicate rules by (file, rule text)
+    seen_rules: set[tuple[str, str]] = set()
+    unique_rules: list[dict] = []
+    for r in rules:
+        key = (r["file"], r["rule"])
+        if key not in seen_rules:
+            seen_rules.add(key)
+            unique_rules.append(r)
+
     return {
         "repoName": repo_path.name,
         "fileCount": file_count,
         "techStack": tech_stack,
         "routes": routes[:50],
         "models": models[:30],
-        "validationRules": rules[:50],
+        "validationRules": unique_rules[:50],
         "configs": configs[:30],
         "errorMessages": errors[:30],
         "keyFiles": key_files[:15],  # Cap for LLM prompt size
@@ -881,8 +896,25 @@ def format_deterministic(scan: dict) -> str:
 
     if scan["validationRules"]:
         lines.append("\n## Validation Rules\n")
-        for r in scan["validationRules"][:20]:
-            lines.append(f"- `{r['file']}`: {r['rule']}")
+        kind_labels = {
+            "grails_constraint": "Grails constraint",
+            "dotnet_annotation": ".NET annotation",
+            "java_validation": "Java/Bean validation",
+            "guard_clause": "Guard clause",
+        }
+        # Group by file for cleaner output
+        by_file: dict[str, list[dict]] = {}
+        for r in scan["validationRules"][:30]:
+            by_file.setdefault(r["file"], []).append(r)
+        for filepath, file_rules in by_file.items():
+            lines.append(f"### `{filepath}`\n")
+            lines.append("| Rule | Type |")
+            lines.append("|------|------|")
+            for r in file_rules:
+                rule_text = r["rule"].replace("|", "\\|")
+                kind = kind_labels.get(r["kind"], r["kind"])
+                lines.append(f"| `{rule_text}` | {kind} |")
+            lines.append("")
 
     if scan["errorMessages"]:
         lines.append("\n## Error Messages (reveal business rules)\n")
