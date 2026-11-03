@@ -9,6 +9,7 @@ import subprocess
 import sys
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
+from llm_utils import add_tone_arg, apply_tone
 
 try:
     import yaml
@@ -270,7 +271,7 @@ For each change, respond with JSON:
 Respond ONLY with valid JSON, no markdown fences."""
 
 
-def run_llm_assessment(changes: list[Change], frontend_matches: list[FrontendMatch], api_key: str) -> dict | None:
+def run_llm_assessment(changes: list[Change], frontend_matches: list[FrontendMatch], api_key: str, context: str = "", tone: str = "technical") -> dict | None:
     """Send the diff + frontend usage to Claude for impact assessment."""
     try:
         import anthropic
@@ -293,10 +294,15 @@ def run_llm_assessment(changes: list[Change], frontend_matches: list[FrontendMat
 
     base_url = os.environ.get("ANTHROPIC_BASE_URL", "https://api.anthropic.com")
     client = anthropic.Anthropic(api_key=api_key, base_url=base_url)
+    # Cap prompt to ~80K chars (~20K tokens) to avoid 413 from API gateway
+    if len(user_message) > 80_000:
+        user_message = user_message[:80_000] + "\n\n> ⚠️ Prompt truncated to fit API limits."
+    if context:
+        user_message = f"## 🎯 Focus Area\nFocus your analysis on: {context}\nPrioritize findings related to this area. Still report critical issues outside this scope, but keep the focus tight.\n\n" + user_message
     response = client.messages.create(
         model=os.environ.get("ANTHROPIC_MODEL", "eu.anthropic.claude-sonnet-4-6"),
         max_tokens=2048,
-        system=LLM_SYSTEM_PROMPT,
+        system=apply_tone(LLM_SYSTEM_PROMPT, tone),
         messages=[{"role": "user", "content": user_message}],
     )
 
@@ -383,6 +389,8 @@ def main() -> int:
     parser.add_argument("--old-spec", default=None, help="Path to the old spec (default: git HEAD~1).")
     parser.add_argument("--api-key", default=None, help="Anthropic API key (or set ANTHROPIC_API_KEY).")
     parser.add_argument("--json", action="store_true", help="Output raw JSON instead of markdown.")
+    parser.add_argument("--context", default="", help="Focus area to sharpen analysis scope.")
+    add_tone_arg(parser)
     args = parser.parse_args()
 
     if not Path(args.spec).is_file():
@@ -427,7 +435,7 @@ def main() -> int:
     llm_result = None
     breaking_or_warning = [c for c in changes if c.severity != "safe"]
     if api_key and breaking_or_warning:
-        llm_result = run_llm_assessment(changes, frontend_matches, api_key)
+        llm_result = run_llm_assessment(changes, frontend_matches, api_key, args.context, args.tone)
     elif not api_key and breaking_or_warning:
         print("⚠️  No API key provided — skipping LLM assessment.", file=sys.stderr)
 

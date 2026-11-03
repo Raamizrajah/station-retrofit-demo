@@ -9,6 +9,7 @@ import os
 import re
 import sys
 from pathlib import Path
+from llm_utils import add_tone_arg, apply_tone
 
 
 # ---------------------------------------------------------------------------
@@ -292,7 +293,7 @@ Classification guide:
 Respond ONLY with valid JSON, no markdown fences."""
 
 
-def run_llm_review(findings: list[dict], api_key: str) -> dict | None:
+def run_llm_review(findings: list[dict], api_key: str, context: str = "", tone: str = "technical") -> dict | None:
     """Send findings with surrounding context to Claude for classification."""
     try:
         import anthropic
@@ -303,11 +304,16 @@ def run_llm_review(findings: list[dict], api_key: str) -> dict | None:
     if not findings:
         return {"findings": [], "summary": "No findings to review."}
 
+    # Cap findings to avoid request-too-large errors (gateway limit ~100KB)
+    MAX_FINDINGS = 30
+    truncated = len(findings) > MAX_FINDINGS
+    review_findings = findings[:MAX_FINDINGS]
+
     # Build context for each finding
     parts: list[str] = []
-    for i, finding in enumerate(findings, start=1):
+    for i, finding in enumerate(review_findings, start=1):
         context_lines = get_context_lines(finding["file"], finding["line"])
-        context_block = "\n".join(context_lines) if context_lines else "(context unavailable)"
+        context_block = "\n".join(context_lines[:10]) if context_lines else "(context unavailable)"
         parts.append(
             f"### Finding {i}\n"
             f"- **File:** `{finding['file']}`\n"
@@ -318,14 +324,23 @@ def run_llm_review(findings: list[dict], api_key: str) -> dict | None:
             f"\n```\n{context_block}\n```"
         )
 
-    user_message = "## Potential Secret Findings\n\n" + "\n\n".join(parts)
+    suffix = ""
+    if truncated:
+        suffix = f"\n\n> ⚠️ Showing {MAX_FINDINGS} of {len(findings)} findings. {len(findings) - MAX_FINDINGS} additional findings omitted."
+
+    user_message = "## Potential Secret Findings\n\n" + "\n\n".join(parts) + suffix
 
     base_url = os.environ.get("ANTHROPIC_BASE_URL", "https://api.anthropic.com")
     client = anthropic.Anthropic(api_key=api_key, base_url=base_url)
+    # Cap prompt to ~80K chars (~20K tokens) to avoid 413 from API gateway
+    if len(user_message) > 80_000:
+        user_message = user_message[:80_000] + "\n\n> ⚠️ Prompt truncated to fit API limits."
+    if context:
+        user_message = f"## 🎯 Focus Area\nFocus your analysis on: {context}\nPrioritize findings related to this area. Still report critical issues outside this scope, but keep the focus tight.\n\n" + user_message
     response = client.messages.create(
         model=os.environ.get("ANTHROPIC_MODEL", "eu.anthropic.claude-sonnet-4-6"),
         max_tokens=4096,
-        system=SYSTEM_PROMPT,
+        system=apply_tone(SYSTEM_PROMPT, tone),
         messages=[{"role": "user", "content": user_message}],
     )
 
@@ -335,7 +350,12 @@ def run_llm_review(findings: list[dict], api_key: str) -> dict | None:
     text = re.sub(r"\s*```$", "", text)
 
     try:
-        return json.loads(text)
+        result = json.loads(text)
+        if truncated:
+            result["_truncated"] = True
+            result["_total_findings"] = len(findings)
+            result["_reviewed_count"] = MAX_FINDINGS
+        return result
     except json.JSONDecodeError:
         print(f"⚠️  Could not parse LLM response as JSON:\n{text}", file=sys.stderr)
         return None
@@ -378,6 +398,15 @@ def format_llm_review(data: dict) -> str:
         )
 
     lines.append(f"\n**Summary:** {data.get('summary', 'No summary.')}")
+
+    if data.get("_truncated"):
+        total = data["_total_findings"]
+        reviewed = data["_reviewed_count"]
+        lines.append(
+            f"\n> ⚠️ **{total - reviewed} of {total} findings were NOT reviewed by the LLM** "
+            f"(capped at {reviewed} to fit API limits). Unreviewed findings may include real secrets."
+        )
+
     return "\n".join(lines)
 
 
@@ -408,6 +437,8 @@ def main() -> int:
     parser.add_argument("repo_path", help="Path to the repository directory to scan.")
     parser.add_argument("--api-key", default=None, help="Anthropic API key (or set ANTHROPIC_API_KEY).")
     parser.add_argument("--json", action="store_true", help="Output raw JSON instead of markdown.")
+    parser.add_argument("--context", default="", help="Focus area to sharpen analysis scope.")
+    add_tone_arg(parser)
     args = parser.parse_args()
 
     repo_path = args.repo_path
@@ -423,7 +454,7 @@ def main() -> int:
     # Layer 2
     llm_result = None
     if api_key:
-        llm_result = run_llm_review(det_findings, api_key)
+        llm_result = run_llm_review(det_findings, api_key, args.context, args.tone)
     else:
         print("⚠️  No API key provided — skipping LLM review.", file=sys.stderr)
 
@@ -438,13 +469,16 @@ def main() -> int:
     else:
         print(format_output(repo_path, det_findings, llm_result))
 
-    # Exit code: 1 if any secret or likely_secret found
+    # Exit code: 1 if any secret or likely_secret found, or if findings were truncated
     has_secret = any(f["confidence"] == "high" for f in det_findings)
     if llm_result:
         has_secret = has_secret or any(
             f.get("classification") in {"secret", "likely_secret"}
             for f in llm_result.get("findings", [])
         )
+        # Treat truncated scans as potentially dirty
+        if llm_result.get("_truncated"):
+            has_secret = True
     return 1 if has_secret else 0
 
 

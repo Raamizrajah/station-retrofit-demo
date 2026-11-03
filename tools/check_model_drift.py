@@ -7,6 +7,7 @@ import os
 import re
 import sys
 from pathlib import Path
+from llm_utils import add_tone_arg, apply_tone
 
 
 # ---------------------------------------------------------------------------
@@ -318,7 +319,7 @@ Respond with JSON:
 Respond ONLY with valid JSON, no markdown fences."""
 
 
-def run_llm_review(det_result: dict, api_key: str) -> dict | None:
+def run_llm_review(det_result: dict, api_key: str, context: str = "", tone: str = "technical") -> dict | None:
     """Send both model sources and the structured diff to Claude for review."""
     try:
         import anthropic
@@ -341,10 +342,15 @@ def run_llm_review(det_result: dict, api_key: str) -> dict | None:
 
     base_url = os.environ.get("ANTHROPIC_BASE_URL", "https://api.anthropic.com")
     client = anthropic.Anthropic(api_key=api_key, base_url=base_url)
+    # Cap prompt to ~80K chars (~20K tokens) to avoid 413 from API gateway
+    if len(user_message) > 80_000:
+        user_message = user_message[:80_000] + "\n\n> ⚠️ Prompt truncated to fit API limits."
+    if context:
+        user_message = f"## 🎯 Focus Area\nFocus your analysis on: {context}\nPrioritize findings related to this area. Still report critical issues outside this scope, but keep the focus tight.\n\n" + user_message
     response = client.messages.create(
         model=os.environ.get("ANTHROPIC_MODEL", "eu.anthropic.claude-sonnet-4-6"),
         max_tokens=2048,
-        system=SYSTEM_PROMPT,
+        system=apply_tone(SYSTEM_PROMPT, tone),
         messages=[{"role": "user", "content": user_message}],
     )
 
@@ -456,6 +462,8 @@ def main() -> int:
     parser.add_argument("entity", help="Entity class name to compare (e.g. DnsRedirect).")
     parser.add_argument("--api-key", default=None, help="Anthropic API key (or set ANTHROPIC_API_KEY).")
     parser.add_argument("--json", action="store_true", help="Output raw JSON instead of markdown.")
+    parser.add_argument("--context", default="", help="Focus area to sharpen analysis scope.")
+    add_tone_arg(parser)
     args = parser.parse_args()
 
     for label, path in [("Repo A", args.repo_a), ("Repo B", args.repo_b)]:
@@ -475,7 +483,7 @@ def main() -> int:
     llm_result = None
     all_diffs = det_result["field_diffs"] + det_result["constraint_diffs"]
     if api_key and all_diffs:
-        llm_result = run_llm_review(det_result, api_key)
+        llm_result = run_llm_review(det_result, api_key, args.context, args.tone)
     elif not api_key and all_diffs:
         print("⚠️  No API key provided — skipping LLM review.", file=sys.stderr)
 

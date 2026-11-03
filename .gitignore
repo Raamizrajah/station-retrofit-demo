@@ -30,3 +30,5 @@ Thumbs.db
 
 # Build artifacts
 *.tgz
+ui-app/.npmrc
+ui-app/node_modules/
