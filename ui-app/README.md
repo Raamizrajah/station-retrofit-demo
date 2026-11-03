@@ -1,32 +1,49 @@
-# React + TypeScript + Vite
+# Station Retrofit UI
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+React + TypeScript + Vite frontend for the Station Retrofit brownfield toolkit.
+Uses [LEGO Connect](https://connect.lego.com) design system components (`@lego/connect-components-react` v3.7.0).
 
-Currently, two official plugins are available:
+## Development
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+cd ui-app
+npm install
+npm run dev      # Vite dev server with HMR
+npm run build    # Build to ../ui/dist/ (served by Python server)
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+## Architecture
+
+The UI is a single-page app with 8 tool panels ordered by brownfield lifecycle:
+
+| Layer | Tabs |
+|-------|------|
+| **Understand** | Business Intel · Architecture · Scenario Plan |
+| **Secure** | Secrets · Dependencies · Migrations |
+| **Monitor** | Model Drift · Contract Drift |
+
+### Key Components
+
+- **Repo Picker** — filterable toggle chips with Select all / Deselect all. Type a keyword and press Enter to select only matching repos. All repos auto-discovered from sibling directories.
+- **Tool Panels** — multi-repo checkbox grids (all pre-selected by default), focus area input, run button, and output display.
+- **Output Display** — renders markdown with tables, code blocks, and **Mermaid diagrams as SVG** via the mermaid library.
+- **Tone Selector** — header dropdown switches between Technical, Business, and Kid-friendly output styles.
+
+### Files
+
+| File | Purpose |
+|------|---------|
+| `src/App.tsx` | 8 tool panels, repo picker, tone selector, output display |
+| `src/markdown.ts` | Markdown-to-HTML converter with Mermaid diagram rendering |
+| `src/index.css` | Styles using LEGO Connect design tokens |
+
+### How Mermaid Works
+
+1. `markdownToHtmlWithMermaid()` extracts ` ```mermaid ``` ` blocks **before** HTML escaping (arrows use `>` and `"`)
+2. Blocks replaced with `<div class="mermaid-diagram">` placeholders
+3. After React inserts HTML into the DOM, `renderMermaidBlocks()` calls `mermaid.render()` to produce SVGs
+4. On render failure, raw Mermaid source is shown so the user can debug
+
+## Build Output
+
+The build writes to `../ui/dist/` which the Python server (`ui/server.py`) serves as static files with SPA fallback.

@@ -2,34 +2,48 @@
 
 > **LEGO Engineering Meetup 2026** — Mission: Space Station Retrofit
 >
-> Most teams operate existing systems rather than greenfield projects. This demo shows how AI can turn tribal knowledge — the migration rules, API contract conventions, and code review checklists that every developer must memorize — into automated guardrails that catch mistakes before they ship.
+> Most teams operate existing systems rather than greenfield projects. This toolkit shows how AI can turn tribal knowledge — the migration rules, API contract conventions, and code review checklists that every developer must memorize — into automated guardrails that catch mistakes before they ship.
 
 ## What This Does
 
-**6 AI-powered tools** covering 3 layers of brownfield system health:
+**8 AI-powered tools** covering 3 layers of brownfield system health:
 
-### 🛡️ Prevention Layer
-| Tool | What it catches |
-|---|---|
-| **🗄️ Migration Reviewer** | Data loss, incomplete rollbacks, non-idempotent SQL in EF Core migrations |
-| **📋 Contract Drift Detector** | Breaking enum removals, renamed properties, required field changes in OpenAPI |
-| **🔐 Secret Scanner** | Hardcoded AWS keys, API tokens, passwords in any repo (YAML, Groovy, Rust, etc.) |
-| **🔄 Domain Model Drift** | Constraint mismatches when the same entity exists in multiple repos |
-
-### 📖 Understanding Layer
+### 📖 Understand Layer
 | Tool | What it produces |
 |---|---|
-| **📝 Architecture Doc Generator** | System architecture docs from code — stacks, endpoints, data flow, Mermaid diagrams |
+| **💡 Business Intelligence** | Business rules, domain models, validation logic, and implicit requirements extracted from code |
+| **📝 Architecture Doc Generator** | System architecture docs — stacks, endpoints, data flow, Mermaid diagrams rendered as SVG |
+| **🔮 Scenario Planner** | Impact analysis for proposed changes — what files, services, and contracts are affected |
 
-### 👁️ Monitoring Layer
+### 🛡️ Secure Layer
+| Tool | What it catches |
+|---|---|
+| **🔐 Secret Scanner** | Hardcoded AWS keys, API tokens, passwords in any repo (YAML, Groovy, Rust, etc.) |
+| **📊 Dependency/Infra Auditor** | EOL versions, CVEs, deprecated K8s APIs, risky infrastructure patterns |
+| **🗄️ Migration Reviewer** | Data loss, incomplete rollbacks, non-idempotent SQL in EF Core migrations |
+
+### 👁️ Monitor Layer
 | Tool | What it flags |
 |---|---|
-| **📊 Dependency/Infra Auditor** | EOL versions, CVEs, deprecated K8s APIs, risky infrastructure patterns |
+| **🔄 Domain Model Drift** | Constraint mismatches when the same entity exists in multiple repos |
+| **📋 Contract Drift Detector** | Breaking enum removals, renamed properties, required field changes in OpenAPI |
 
 All tools work in 3 layers:
 1. **Deterministic checks** — fast, no LLM needed, catches structural issues
 2. **LLM review** — Claude analyzes context for semantic issues and recommendations
 3. **Formatted output** — markdown reports for CLI, UI, or CI comments
+
+## Demo UI
+
+A React + TypeScript web interface at `localhost:8080` with LEGO Connect design system components:
+
+- **8 tabs** ordered by brownfield lifecycle (Understand → Secure → Monitor)
+- **Filterable repo picker** — keyword filter with Enter-to-select-matches, Select all / Deselect all
+- **Multi-repo support** — all panels use checkbox grids with all repos pre-selected by default
+- **Focus area** — optional text field that restricts LLM output to only relevant information (irrelevant sections omitted entirely)
+- **Output style** — switch between Technical, Business, and Kid-friendly tones
+- **Mermaid diagrams** — architecture diagrams rendered as interactive SVGs
+- **Auto-discovery** — sibling repos detected automatically by project markers
 
 ## Live Demo: ClutchPower Repos
 
@@ -64,46 +78,48 @@ EOF
 
 ### 3. Run tools from CLI
 
+All tools support `--context "focus area"` to restrict output and `--tone technical|business|childlike` for output style.
+
 ```bash
 export $(grep -v '^#' .env | xargs)
 
+# 💡 Business Intelligence — extract business rules from code
+python tools/extract_requirements.py /path/to/repo1 /path/to/repo2
+
+# 📝 Architecture Doc — generates system map with Mermaid diagrams
+python tools/generate_arch_doc.py /path/to/repo1 /path/to/repo2 /path/to/repo3
+
+# 🔮 Scenario Planner — impact analysis for a proposed change
+python tools/scenario_planner.py /path/to/repo1 /path/to/repo2 --scenario "Add Redis caching"
+
 # 🔐 Secret Scanner — finds real AWS keys
-python tools/scan_secrets.py /path/to/clutchpower-domain-redirect-database-master
-
-# 🔄 Domain Model Drift — finds DnsRedirect constraint mismatch
-python tools/check_model_drift.py \
-  /path/to/clutchpower-domain-redirect-admin-master \
-  /path/to/clutchpower-domain-redirect-lookup-master \
-  DnsRedirect
-
-# 📝 Architecture Doc — generates system map from 4 repos
-python tools/generate_arch_doc.py \
-  /path/to/clutchpower-domain-redirect-admin-master \
-  /path/to/clutchpower-domain-redirect-database-master \
-  /path/to/clutchpower-domain-redirect-lookup-master \
-  /path/to/clutchpower-school-search-rs-master
+python tools/scan_secrets.py /path/to/repo
 
 # 📊 Dependency Audit — flags EOL versions and CVEs
-python tools/audit_deps.py /path/to/clutchpower-domain-redirect-lookup-master
+python tools/audit_deps.py /path/to/repo
 
 # 🗄️ Migration Review (demo scenarios)
 python tools/review_migration.py scenarios/01-bad-migration-no-backfill/BadMigration.cs
+
+# 🔄 Domain Model Drift — finds constraint mismatches across repos
+python tools/check_model_drift.py /path/to/repo-a /path/to/repo-b DnsRedirect
 
 # 📋 Contract Drift (demo scenarios)
 python tools/check_contract_drift.py \
   --old-spec backend/Api/specs/api-spec.yaml \
   --spec scenarios/04-spec-removed-enum-value/modified-spec.yaml \
   --frontend frontend/src
+
+# With focus area and tone
+python tools/extract_requirements.py /path/to/repo --context "authentication" --tone business
 ```
 
 ### 4. Or use the demo UI
 
 ```bash
-python ui/server.py
+python -c "from ui.server import main; main()"
 # Open http://localhost:8080
 ```
-
-The UI has 6 tabs — 2 for pre-built demo scenarios (migration + contract drift) and 4 for live brownfield analysis with repo path dropdowns.
 
 ## Breaking Scenarios
 
@@ -130,17 +146,27 @@ Each scenario in `scenarios/` demonstrates a real-world mistake:
 ```
 station-retrofit-demo/
 ├── tools/                         AI review tools (Python)
-│   ├── review_migration.py        🗄️ Migration reviewer
-│   ├── check_contract_drift.py    📋 Contract drift detector
-│   ├── scan_secrets.py            🔐 Secret scanner
-│   ├── check_model_drift.py       🔄 Domain model drift detector
+│   ├── extract_requirements.py    💡 Business intelligence extractor
 │   ├── generate_arch_doc.py       📝 Architecture doc generator
+│   ├── scenario_planner.py        🔮 Scenario impact planner
+│   ├── scan_secrets.py            🔐 Secret scanner
 │   ├── audit_deps.py              📊 Dependency/infra auditor
+│   ├── review_migration.py        🗄️ Migration reviewer
+│   ├── check_model_drift.py       🔄 Domain model drift detector
+│   ├── check_contract_drift.py    📋 Contract drift detector
+│   ├── llm_utils.py               Shared LLM utilities (tone, context)
 │   └── format_pr_comment.py       PR comment formatter
 │
+├── ui-app/                        React + TypeScript + Vite (source)
+│   └── src/
+│       ├── App.tsx                8 tool panels, repo picker, tone selector
+│       ├── markdown.ts            Markdown-to-HTML with Mermaid rendering
+│       └── index.css              Styles (LEGO Connect design tokens)
+│
 ├── ui/                            Demo web interface
-│   ├── index.html                 Single-page app (6 tool tabs)
-│   └── server.py                  Python HTTP server (10 API endpoints)
+│   ├── dist/                      Built UI assets (served by server)
+│   └── server.py                  Python HTTP server (ThreadedHTTPServer,
+│                                  auto-discovery, 8 tool endpoints)
 │
 ├── scenarios/                     6 pre-built breaking examples
 │   ├── 01-bad-migration-no-backfill/
@@ -158,7 +184,7 @@ station-retrofit-demo/
 │   ├── contract-drift.yml         AI contract drift check on PR
 │   └── pr-check-migration-order.yml
 │
-└── docs/plans/                    Planning docs
+└── .env                           API key + model config (not committed)
 ```
 
 ## Architecture
@@ -178,6 +204,23 @@ station-retrofit-demo/
                       (localhost:8080)     (PR comments)
 ```
 
+### UI Architecture
+
+```
+Browser ──► Python HTTP Server (ThreadedHTTPServer, port 8080)
+               ├── GET  /api/discover     → auto-find sibling repos
+               ├── POST /api/extract-requirements  → repoPaths[]
+               ├── POST /api/generate-arch-doc     → repoPaths[]
+               ├── POST /api/scenario-planner      → repoPaths[] + scenario
+               ├── POST /api/scan-secrets          → repoPaths[]
+               ├── POST /api/audit-deps            → repoPaths[]
+               ├── POST /api/review-migration      → file
+               ├── POST /api/check-model-drift     → repoA + repoB + entity
+               ├── POST /api/check-contract-drift  → specs + frontend
+               ├── POST /api/scan-entities         → repos[]
+               └── GET  /*                         → SPA fallback (ui/dist/)
+```
+
 ## The Story
 
 > *"We took tribal knowledge — the migration rules in AGENTS.md, the implicit API contracts, the security checks no one runs, the dependency versions no one tracks — and turned them into AI guardrails that analyze every brownfield system automatically."*
@@ -189,6 +232,7 @@ station-retrofit-demo/
 ## Requirements
 
 - Python 3.12+
+- Node.js 20+ (for UI development only — pre-built UI included)
 - `ANTHROPIC_API_KEY` for LLM review (deterministic checks work without it)
 
 ## Team
