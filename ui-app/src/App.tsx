@@ -1001,9 +1001,15 @@ export default function App() {
             <input
               className="repo-filter"
               type="text"
-              placeholder="🔍 Filter repositories…"
+              placeholder="🔍 Filter repositories… (Enter to select matches)"
               value={repoFilter}
               onChange={(e) => setRepoFilter(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && repoFilter.trim()) {
+                  setSelectedPaths(new Set(filteredRepos.map((r) => r.path)));
+                  setRepoFilter("");
+                }
+              }}
             />
             <button
               type="button"
