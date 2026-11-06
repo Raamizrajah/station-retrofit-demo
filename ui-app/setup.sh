@@ -4,7 +4,9 @@ set -e
 
 ENV_FILE="$(dirname "$0")/../.env"
 if [ -f "$ENV_FILE" ]; then
-  export $(grep -v '^#' "$ENV_FILE" | grep -v '^$' | xargs)
+  set -a
+  source "$ENV_FILE"
+  set +a
 fi
 
 if [ -z "$GITHUB_TOKEN" ]; then

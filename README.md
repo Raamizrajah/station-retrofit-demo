@@ -93,7 +93,7 @@ All tools also work standalone. Every tool supports `--context "focus area"` and
 
 ```bash
 source .venv/bin/activate
-export $(grep -v '^#' .env | grep -v '^$' | xargs)
+set -a && source .env && set +a
 
 # 💡 Business Intelligence — extract business rules from code
 python tools/extract_requirements.py /path/to/repo1 /path/to/repo2
@@ -162,6 +162,7 @@ station-retrofit-demo/
 │   ├── llm_utils.py               Shared LLM utilities (tone, context)
 │
 ├── ui-app/                        React + TypeScript + Vite (source)
+│   ├── setup.sh                   npm install with GITHUB_TOKEN from .env
 │   └── src/
 │       ├── App.tsx                8 tool panels, repo picker, tone selector
 │       ├── markdown.ts            Markdown-to-HTML with Mermaid rendering

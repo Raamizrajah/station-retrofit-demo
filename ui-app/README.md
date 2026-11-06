@@ -8,7 +8,7 @@ Uses LEGO Connect design system components (`@lego/connect-components-react` v3.
 ## Development
 
 ```bash
-# Install dependencies (loads GITHUB_TOKEN from .env automatically)
+# From project root — install dependencies (loads GITHUB_TOKEN from .env)
 ./ui-app/setup.sh
 
 cd ui-app

@@ -17,7 +17,7 @@ fi
 source .venv/bin/activate
 
 # ── 3. Install Python deps ──
-pip install -q -r tools/requirements.txt
+python3 -m pip install -q -r tools/requirements.txt
 
 # ── 4. Load .env ──
 if [ ! -f .env ]; then
@@ -31,7 +31,9 @@ if [ ! -f .env ]; then
   echo "   Then run ./start.sh again."
   exit 1
 fi
-export $(grep -v '^#' .env | grep -v '^$' | xargs)
+set -a
+source .env
+set +a
 
 if [ -z "$ANTHROPIC_API_KEY" ] || [ "$ANTHROPIC_API_KEY" = "your-key-here" ]; then
   echo "⚠️  ANTHROPIC_API_KEY not set in .env — deterministic checks will work, but LLM review won't."
