@@ -8,6 +8,7 @@ obj/
 # Node
 node_modules/
 dist/
+!ui/dist/
 .vite/
 
 # Python
