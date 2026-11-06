@@ -58,39 +58,48 @@ The tools run against 4 real LEGO Education brownfield repositories:
 
 ## Quick Start
 
-### 1. Set up Python environment
+```bash
+git clone https://github.com/Raamizrajah/station-retrofit-demo.git
+cd station-retrofit-demo
+
+# 1. Copy the env template and add your API key
+cp .env.example .env
+#    Edit .env → set ANTHROPIC_API_KEY (get one from your LLM gateway)
+
+# 2. Run everything (creates venv, installs deps, starts server)
+./start.sh
+#    Open http://localhost:8080
+```
+
+That's it. The UI auto-discovers repos in sibling directories.
+
+### Clone some repos to analyse
+
+The UI auto-discovers repos in sibling directories. **Any repo works** — just clone repos next to `station-retrofit-demo/`:
 
 ```bash
-python3 -m venv .venv
+cd ..
+git clone https://github.com/your-org/some-repo.git
+git clone https://github.com/your-org/another-repo.git
+cd station-retrofit-demo
+./start.sh
+```
+
+> **LEGO engineers:** The ClutchPower repos used in the meetup demo are in `LEGO/DEVCON25_NEXUS_WORKSHOP`. Clone the 4 `clutchpower-*` directories as siblings to this repo.
+
+### CLI usage
+
+All tools also work standalone. Every tool supports `--context "focus area"` and `--tone technical|business|childlike`.
+
+```bash
 source .venv/bin/activate
-pip install -r tools/requirements.txt
-```
-
-### 2. Configure the LLM (optional — deterministic checks work without it)
-
-```bash
-cat > .env << 'EOF'
-ANTHROPIC_API_KEY=your-key-here
-ANTHROPIC_BASE_URL=https://your-llm-gateway.example.com/anthropic
-ANTHROPIC_MODEL=eu.anthropic.claude-sonnet-4-6
-
-# Only needed to rebuild the UI (npm install for @lego/connect-* packages)
-GITHUB_TOKEN=your-github-pat-here
-EOF
-```
-
-### 3. Run tools from CLI
-
-All tools support `--context "focus area"` to restrict output and `--tone technical|business|childlike` for output style.
-
-```bash
-export $(grep -v '^#' .env | xargs)
+export $(grep -v '^#' .env | grep -v '^$' | xargs)
 
 # 💡 Business Intelligence — extract business rules from code
 python tools/extract_requirements.py /path/to/repo1 /path/to/repo2
 
 # 📝 Architecture Doc — generates system map with Mermaid diagrams
-python tools/generate_arch_doc.py /path/to/repo1 /path/to/repo2 /path/to/repo3
+python tools/generate_arch_doc.py /path/to/repo1 /path/to/repo2
 
 # 🔮 Scenario Planner — impact analysis for a proposed change
 python tools/scenario_planner.py /path/to/repo1 /path/to/repo2 --scenario "Add Redis caching"
@@ -101,13 +110,13 @@ python tools/scan_secrets.py /path/to/repo
 # 📊 Dependency Audit — flags EOL versions and CVEs
 python tools/audit_deps.py /path/to/repo
 
-# 🗄️ Migration Review (demo scenarios)
+# 🗄️ Migration Review (demo scenarios included)
 python tools/review_migration.py scenarios/01-bad-migration-no-backfill/BadMigration.cs
 
 # 🔄 Domain Model Drift — finds constraint mismatches across repos
 python tools/check_model_drift.py /path/to/repo-a /path/to/repo-b DnsRedirect
 
-# 📋 Contract Drift (demo scenarios)
+# 📋 Contract Drift (demo scenarios included)
 python tools/check_contract_drift.py \
   --old-spec backend/Api/specs/api-spec.yaml \
   --spec scenarios/04-spec-removed-enum-value/modified-spec.yaml \
@@ -115,13 +124,6 @@ python tools/check_contract_drift.py \
 
 # With focus area and tone
 python tools/extract_requirements.py /path/to/repo --context "authentication" --tone business
-```
-
-### 4. Or use the demo UI
-
-```bash
-python -c "from ui.server import main; main()"
-# Open http://localhost:8080
 ```
 
 ## Breaking Scenarios
@@ -186,7 +188,9 @@ station-retrofit-demo/
 │   ├── contract-drift.yml         AI contract drift check on PR
 │   └── pr-check-migration-order.yml
 │
-└── .env                           API key + model config (not committed)
+├── .env.example                   Template — copy to .env and fill in
+├── start.sh                       One-command setup + launch
+└── .env                           Your secrets (not committed)
 ```
 
 ## Architecture
