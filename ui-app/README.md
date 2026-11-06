@@ -8,8 +8,10 @@ Uses LEGO Connect design system components (`@lego/connect-components-react` v3.
 ## Development
 
 ```bash
+# Install dependencies (loads GITHUB_TOKEN from .env automatically)
+./ui-app/setup.sh
+
 cd ui-app
-npm install
 npm run dev      # Vite dev server with HMR
 npm run build    # Build to ../ui/dist/ (served by Python server)
 ```
