@@ -44,84 +44,13 @@ function extractMermaidBlocks(md: string): {
   return { md: replaced, blocks };
 }
 
-export function markdownToHtml(md: string): string {
-  if (!md) return "";
-
-  // Normalize CRLF to LF so table/blockquote regexes match consistently
-  md = md.replace(/\r\n/g, "\n");
-
-  // Pull out mermaid blocks before escaping
-  const { md: safeMd, blocks } = extractMermaidBlocks(md);
-
-  // Escape HTML first to prevent XSS from tool output
-  let html = escapeHtml(safeMd);
-
-  // Tables: header | sep | rows
-  html = html.replace(
-    /^(\|.+\|)\n(\|[-| :]+\|)\n((?:\|.+\|\n?)*)/gm,
-    (_match, header: string, _sep: string, body: string) => {
-      const ths = header
-        .split("|")
-        .filter((c: string) => c.trim())
-        .map((c: string) => `<th>${c.trim()}</th>`)
-        .join("");
-      const rows = body
-        .trim()
-        .split("\n")
-        .map((row: string) => {
-          const tds = row
-            .split("|")
-            .filter((c: string) => c.trim())
-            .map((c: string) => `<td>${c.trim()}</td>`)
-            .join("");
-          return `<tr>${tds}</tr>`;
-        })
-        .join("");
-      return `<table><thead><tr>${ths}</tr></thead><tbody>${rows}</tbody></table>`;
-    },
-  );
-
-  // Generic code blocks: ```lang ... ```
-  html = html.replace(
-    /```(\w*)\n([\s\S]*?)```/g,
-    (_match, lang: string, code: string) =>
-      `<pre><code class="language-${lang || "text"}">${code.trim()}</code></pre>`,
-  );
-
-  html = html
-    .replace(/^### (.+)$/gm, "<h3>$1</h3>")
-    .replace(/^## (.+)$/gm, "<h2>$1</h2>")
-    .replace(/^# (.+)$/gm, "<h1>$1</h1>")
-    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-    .replace(
-      /`([^`]+)`/g,
-      "<code>$1</code>",
-    )
-    .replace(/^- /gm, "• ")
-    .replace(
-      /^&gt; (.+)$/gm,
-      "<blockquote>$1</blockquote>",
-    )
-    .replace(/\n/g, "<br/>");
-
-  // Re-inject mermaid blocks as placeholder divs (rendered after DOM insertion)
-  for (const [id, _code] of blocks) {
-    html = html.replace(
-      id,
-      `<div class="mermaid-placeholder" data-mermaid-id="${id}"></div>`,
-    );
-  }
-
-  return html;
-}
-
 /**
- * Store for mermaid source blocks from the last markdownToHtml call.
+ * Store for mermaid source blocks from the last markdownToHtmlWithMermaid call.
  * Components call renderMermaidBlocks() after the HTML is in the DOM.
  */
 let pendingBlocks = new Map<string, string>();
 
-/** Variant that also stashes mermaid blocks for later rendering. */
+/** Convert markdown to HTML, stashing mermaid blocks for post-DOM rendering. */
 export function markdownToHtmlWithMermaid(md: string): string {
   if (!md) return "";
 

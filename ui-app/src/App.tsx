@@ -155,6 +155,16 @@ function OutputDisplay({
   result: ToolResult | null;
   loading: boolean;
 }) {
+  const outputRef = useRef<HTMLDivElement>(null);
+  const htmlContent = result ? markdownToHtmlWithMermaid(result.markdown) : "";
+
+  // Render mermaid diagrams after the HTML is in the DOM
+  useEffect(() => {
+    if (outputRef.current && htmlContent) {
+      renderMermaidBlocks();
+    }
+  }, [htmlContent]);
+
   if (loading) {
     return (
       <div className="loading-placeholder">
@@ -174,16 +184,6 @@ function OutputDisplay({
     : result.exit_code === 0
       ? "Clean"
       : "Issues found";
-
-  const htmlContent = markdownToHtmlWithMermaid(result.markdown);
-
-  // Render mermaid diagrams after the HTML is in the DOM
-  const outputRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (outputRef.current) {
-      renderMermaidBlocks();
-    }
-  }, [htmlContent]);
 
   return (
     <div>

@@ -449,7 +449,6 @@ class ReviewHandler(SimpleHTTPRequestHandler):
                 cmd_args += ["--context", context]
             return self._run_tool(tool, cmd_args, tone)
         # Multiple repos — run each and merge markdown
-        import time
         t0 = time.time()
         all_md = []
         combined_exit = 0
