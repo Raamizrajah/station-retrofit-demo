@@ -71,7 +71,7 @@ pip install -r tools/requirements.txt
 ```bash
 cat > .env << 'EOF'
 ANTHROPIC_API_KEY=your-key-here
-ANTHROPIC_BASE_URL=https://api.genai.thelegogroup.com/anthropic
+ANTHROPIC_BASE_URL=https://your-llm-gateway.example.com/anthropic
 ANTHROPIC_MODEL=eu.anthropic.claude-sonnet-4-6
 EOF
 ```
@@ -232,8 +232,10 @@ Browser ──► Python HTTP Server (ThreadedHTTPServer, port 8080)
 ## Requirements
 
 - Python 3.12+
-- Node.js 20+ (for UI development only — pre-built UI included)
 - `ANTHROPIC_API_KEY` for LLM review (deterministic checks work without it)
+- Node.js 20+ (for UI development only — pre-built UI included in `ui/dist/`)
+
+> **Note:** The UI uses LEGO's private `@lego/connect-*` npm packages. External contributors can run the demo via the pre-built `ui/dist/` but cannot rebuild `ui-app/` without registry access. All 8 CLI tools work independently with no npm dependencies.
 
 ## Team
 

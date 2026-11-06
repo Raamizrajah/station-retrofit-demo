@@ -371,4 +371,4 @@ Each tool follows this pipeline:
 
 - Existing tools: `tools/review_migration.py`, `tools/check_contract_drift.py`
 - ClutchPower repos: local clones from `gitlab.legogroup.io/clutchpower/`
-- LEGO GenAI gateway: `https://api.genai.thelegogroup.com/anthropic`
+- LLM gateway: `https://your-llm-gateway.example.com/anthropic`

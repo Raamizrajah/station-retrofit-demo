@@ -31,4 +31,5 @@ Thumbs.db
 # Build artifacts
 *.tgz
 ui-app/.npmrc
+ui-app/package-lock.json
 ui-app/node_modules/

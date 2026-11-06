@@ -1,7 +1,9 @@
 # Station Retrofit UI
 
 React + TypeScript + Vite frontend for the Station Retrofit brownfield toolkit.
-Uses [LEGO Connect](https://connect.lego.com) design system components (`@lego/connect-components-react` v3.7.0).
+Uses LEGO Connect design system components (`@lego/connect-components-react` v3.7.0).
+
+> **Note:** The `@lego/connect-*` packages are hosted on LEGO's private npm registry. External contributors cannot run `npm install` in `ui-app/`, but the pre-built UI in `ui/dist/` works without it.
 
 ## Development
 
