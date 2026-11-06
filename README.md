@@ -73,6 +73,9 @@ cat > .env << 'EOF'
 ANTHROPIC_API_KEY=your-key-here
 ANTHROPIC_BASE_URL=https://your-llm-gateway.example.com/anthropic
 ANTHROPIC_MODEL=eu.anthropic.claude-sonnet-4-6
+
+# Only needed to rebuild the UI (npm install for @lego/connect-* packages)
+GITHUB_TOKEN=your-github-pat-here
 EOF
 ```
 
