@@ -155,7 +155,6 @@ station-retrofit-demo/
 │   ├── check_model_drift.py       🔄 Domain model drift detector
 │   ├── check_contract_drift.py    📋 Contract drift detector
 │   ├── llm_utils.py               Shared LLM utilities (tone, context)
-│   └── format_pr_comment.py       PR comment formatter
 │
 ├── ui-app/                        React + TypeScript + Vite (source)
 │   └── src/

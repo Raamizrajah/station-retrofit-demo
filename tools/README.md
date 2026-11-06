@@ -82,7 +82,6 @@ python tools/check_contract_drift.py \
 ## Shared Utilities
 
 - **`llm_utils.py`** — Tone instructions, `apply_tone()`, `add_tone_arg()` shared across all tools
-- **`format_pr_comment.py`** — Formats tool output as GitHub PR review comments
 
 ## GitHub Actions
 
